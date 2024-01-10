@@ -1,0 +1,30 @@
+name: real_pick
+
+dataset_path: &dataset_path data/pick
+
+obs_dim: 16 # 3 xpos + 4quat + 7dof + 2 goal position in pixel space 
+action_dim: 7
+
+env_runner:
+  _target_: diffusion_policy.env_runner.real_pick_lowdim_runner.RealPickLowdimRunner
+  dataset_dir: *dataset_path
+  n_train: 6
+  n_train_vis: 2
+  n_test: 50
+  n_test_vis: 4
+  max_steps: 200
+  n_obs_steps: ${n_obs_steps}
+  n_action_steps: ${n_action_steps}
+
+
+dataset:
+  _target_: diffusion_policy.dataset.real_pick_lowdim.RealPickLowdimDataset
+  zarr_path: data/pick
+  horizon: ${horizon}
+  pad_before: ${eval:'${n_obs_steps}-1+${n_latency_steps}'}
+  pad_after: ${eval:'${n_action_steps}-1'}
+  seed: 42
+  val_ratio: 0.02
+  max_train_episodes: null
+
+
