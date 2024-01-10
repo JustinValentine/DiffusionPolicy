@@ -70,7 +70,8 @@ class MultiStepWrapper(gym.Wrapper):
             n_obs_steps, 
             n_action_steps, 
             max_episode_steps=None,
-            reward_agg_method='max'
+            reward_agg_method='max',
+            render_seq=False
         ):
         super().__init__(env)
         self._action_space = repeated_space(env.action_space, n_action_steps)
@@ -80,6 +81,7 @@ class MultiStepWrapper(gym.Wrapper):
         self.n_action_steps = n_action_steps
         self.reward_agg_method = reward_agg_method
         self.n_obs_steps = n_obs_steps
+        self.render_seq = render_seq
 
         self.obs = deque(maxlen=n_obs_steps+1)
         self.reward = list()
@@ -106,7 +108,13 @@ class MultiStepWrapper(gym.Wrapper):
             if len(self.done) > 0 and self.done[-1]:
                 # termination
                 break
-            observation, reward, done, info = super().step(act)
+
+            if self.render_seq:
+                a = {'act': act, 'action_seq': action}
+            else:
+                a = act
+
+            observation, reward, done, info = super().step(a)
 
             self.obs.append(observation)
             self.reward.append(reward)

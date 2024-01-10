@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 from diffusion_policy.real_world.video_recorder import VideoRecorder
+import cv2
 
 class VideoRecordingWrapper(gym.Wrapper):
     def __init__(self, 
@@ -9,6 +10,7 @@ class VideoRecordingWrapper(gym.Wrapper):
             mode='rgb_array',
             file_path=None,
             steps_per_render=1,
+            render_seq=True,
             **kwargs
         ):
         """
@@ -21,6 +23,7 @@ class VideoRecordingWrapper(gym.Wrapper):
         self.steps_per_render = steps_per_render
         self.file_path = file_path
         self.video_recoder = video_recoder
+        self.render_seq = render_seq
 
         self.step_count = 0
 
@@ -32,7 +35,10 @@ class VideoRecordingWrapper(gym.Wrapper):
         return obs
     
     def step(self, action):
-        result = super().step(action)
+        if self.render_seq:
+            result = super().step(action['act'])
+        else:
+            result = super().step(action)
         self.step_count += 1
         if self.file_path is not None \
             and ((self.step_count % self.steps_per_render) == 0):
@@ -41,8 +47,19 @@ class VideoRecordingWrapper(gym.Wrapper):
 
             frame = self.env.render(
                 mode=self.mode, **self.render_kwargs)
-            assert frame.dtype == np.uint8
-            self.video_recoder.write_frame(frame)
+            if self.render_seq:
+                traj_len = action['action_seq'].shape[0]
+                xy_action = action['action_seq'].reshape(traj_len, -1, 3)[:, :, :2]
+                #scale = self.env.render_size / self.env.window_size
+                scale = 1
+                for i in range(xy_action.shape[1]):
+                    traj = xy_action[:, i, :]
+                    traj = (traj * scale).astype(np.int32)
+                    traj = traj.reshape((-1, 1, 2))
+                    frame = cv2.polylines(frame, [traj], isClosed=False, color=(255, 0, 0), thickness=1)
+            if self.mode != "human":
+                assert frame.dtype == np.uint8
+                self.video_recoder.write_frame(frame)
         return result
     
     def render(self, mode='rgb_array', **kwargs):

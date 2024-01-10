@@ -8,6 +8,7 @@ import dill
 import math
 import wandb.sdk.data_types.video as wv
 from diffusion_policy.env.pusht.pusht_image_env import PushTImageEnv
+from diffusion_policy.env.pusht.pusht_image_kp_action_env import PushTImageKpActionEnv
 from diffusion_policy.gym_util.async_vector_env import AsyncVectorEnv
 # from diffusion_policy.gym_util.sync_vector_env import SyncVectorEnv
 from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
@@ -35,20 +36,34 @@ class PushTImageRunner(BaseImageRunner):
             render_size=96,
             past_action=False,
             tqdm_interval_sec=5.0,
-            n_envs=None
+            n_envs=None,
+            keypoint_action=False
         ):
         super().__init__(output_dir)
         if n_envs is None:
             n_envs = n_train + n_test
 
         steps_per_render = max(10 // fps, 1)
+
+        if keypoint_action:
+            kp_kwargs = PushTImageKpActionEnv.genenerate_keypoint_manager_params()
         def env_fn():
-            return MultiStepWrapper(
-                VideoRecordingWrapper(
-                    PushTImageEnv(
+            if keypoint_action:
+                pushT_env = PushTImageKpActionEnv(
+                    legacy=legacy_test,
+                    render_size=render_size,
+                    draw_keypoints=True,
+                    **kp_kwargs
+                )
+            else:
+                pushT_env = PushTImageEnv(
                         legacy=legacy_test,
                         render_size=render_size
-                    ),
+                    )
+
+            return MultiStepWrapper(
+                VideoRecordingWrapper(
+                    pushT_env,
                     video_recoder=VideoRecorder.create_h264(
                         fps=fps,
                         codec='h264',

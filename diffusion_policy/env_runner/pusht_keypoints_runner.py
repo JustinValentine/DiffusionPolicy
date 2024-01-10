@@ -58,6 +58,7 @@ class PushTKeypointsRunner(BaseLowdimRunner):
                 VideoRecordingWrapper(
                     PushTKeypointsEnv(
                         legacy=legacy_test,
+                        draw_keypoints=True,
                         keypoint_visible_rate=keypoint_visible_rate,
                         agent_keypoints=agent_keypoints,
                         **kp_kwargs

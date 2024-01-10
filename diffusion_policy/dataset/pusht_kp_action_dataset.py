@@ -10,7 +10,7 @@ from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.dataset.base_dataset import BaseImageDataset
 from diffusion_policy.common.normalize_util import get_image_range_normalizer
 
-class PushTImageDataset(BaseImageDataset):
+class PushTKpActionImageDataset(BaseImageDataset):
     def __init__(self,
             zarr_path, 
             horizon=1,
@@ -19,7 +19,6 @@ class PushTImageDataset(BaseImageDataset):
             seed=42,
             val_ratio=0.0,
             max_train_episodes=None,
-            keypoint_action=False
             ):
         
         super().__init__()
@@ -37,7 +36,7 @@ class PushTImageDataset(BaseImageDataset):
 
         self.sampler = SequenceSampler(
             replay_buffer=self.replay_buffer, 
-            sequence_length=horizon,
+            sequence_length=horizon+1,
             pad_before=pad_before, 
             pad_after=pad_after,
             episode_mask=train_mask)
@@ -45,13 +44,12 @@ class PushTImageDataset(BaseImageDataset):
         self.horizon = horizon
         self.pad_before = pad_before
         self.pad_after = pad_after
-        self.keypoint_action = keypoint_action
 
     def get_validation_dataset(self):
         val_set = copy.copy(self)
         val_set.sampler = SequenceSampler(
             replay_buffer=self.replay_buffer, 
-            sequence_length=self.horizon,
+            sequence_length=self.horizon+1,
             pad_before=self.pad_before, 
             pad_after=self.pad_after,
             episode_mask=~self.train_mask
@@ -61,16 +59,20 @@ class PushTImageDataset(BaseImageDataset):
 
     def get_normalizer(self, mode='limits', **kwargs):
 
-        if self.keypoint_action:
-            sample_data = self._sample_to_data(self.replay_buffer)
-            data = {
-                'action': sample_data['action']
-            }
-        else:
-            data = {
-                'action': self.replay_buffer['action'],
-                'agent_pos': self.replay_buffer['state'][...,:2]
-            }
+        sample = self.replay_buffer
+
+        agent_pos = sample['state'][:,:2].astype(np.float32) # (agent_posx2, block_posex3)
+        keypoint = sample['keypoint']
+
+        action = np.concatenate([
+            keypoint.reshape(keypoint.shape[0], -1), 
+            agent_pos], axis=-1)
+        
+
+        data = {
+            'action': action.astype(np.float32), # T, 20
+            'low_dim': action.astype(np.float32) # T, 20
+        }
 
         normalizer = LinearNormalizer()
         normalizer.fit(data=data, last_n_dims=1, mode=mode, **kwargs)
@@ -81,32 +83,26 @@ class PushTImageDataset(BaseImageDataset):
         return len(self.sampler)
 
     def _sample_to_data(self, sample):
+
         agent_pos = sample['state'][:,:2].astype(np.float32) # (agent_posx2, block_posex3)
         image = np.moveaxis(sample['img'],-1,1)/255
         keypoint = sample['keypoint']
 
-        if self.keypoint_action:
+        all_keypoints = np.concatenate([
+            keypoint.reshape(keypoint.shape[0], -1), 
+            agent_pos], axis=-1)
+        
+        keypoint_action = all_keypoints[1:]
+        keypoint_obs = all_keypoints[:self.horizon]
 
-            action = np.concatenate([
-                keypoint.reshape(keypoint.shape[0], -1), 
-                agent_pos], axis=-1)
+        data = {
+            'obs': {
+                'image': image[:self.horizon], # T, 3, 96, 96
+                'low_dim': keypoint_obs # T, 20
+            },
+            'action': keypoint_action.astype(np.float32) # T, 20
+        }
 
-            data = {
-                'obs': {
-                    'image': image, # T, 3, 96, 96
-                },
-                'action': action.astype(np.float32) # T, 20
-            }
-
-        else:
-
-            data = {
-                'obs': {
-                    'image': image, # T, 3, 96, 96
-                    'agent_pos': agent_pos, # T, 2
-                },
-                'action': sample['action'].astype(np.float32) # T, 2
-            }
         return data
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -116,13 +112,3 @@ class PushTImageDataset(BaseImageDataset):
         return torch_data
 
 
-def test():
-    import os
-    zarr_path = os.path.expanduser('~/dev/diffusion_policy/data/pusht/pusht_cchi_v7_replay.zarr')
-    dataset = PushTImageDataset(zarr_path, horizon=16)
-
-    # from matplotlib import pyplot as plt
-    # normalizer = dataset.get_normalizer()
-    # nactions = normalizer['action'].normalize(dataset.replay_buffer['action'])
-    # diff = np.diff(nactions, axis=0)
-    # dists = np.linalg.norm(np.diff(nactions, axis=0), axis=-1)
