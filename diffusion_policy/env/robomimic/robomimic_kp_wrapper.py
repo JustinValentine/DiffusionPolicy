@@ -73,7 +73,7 @@ class RobomimicKPWrapper(gym.Env):
         self.keypoint_cache = None
         self.alpha = 0.25
         self.P = np.eye(8)
-        self.j_weight = 0.5
+        self.j_weight = 0.8
         
         self.gripper_controller = GripperController(self.env.env.sim, self.env.env.robots[0])
         self.env.env.robots[0].grip_action = self.gripper_controller.grip_action # dynamically overload grip action

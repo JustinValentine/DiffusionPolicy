@@ -42,7 +42,7 @@ env_runner:
   abs_action: *abs_action
   tqdm_interval_sec: 1.0
   n_envs: 28
-  estimate_J: True
+  estimate_J: False
 
 # evaluation at this config requires a 16 core 64GB instance.
 
