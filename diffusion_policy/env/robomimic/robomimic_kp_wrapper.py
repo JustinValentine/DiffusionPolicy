@@ -8,6 +8,7 @@ from robomimic.envs.env_robosuite import EnvRobosuite
 
 from scipy.optimize import minimize, lsq_linear, root
 import robosuite.utils.transform_utils as T
+import mujoco
 
 
 class RobomimicKPWrapper(gym.Env):
@@ -76,7 +77,10 @@ class RobomimicKPWrapper(gym.Env):
         self.j_weight = 0.8
         
         self.gripper_controller = GripperController(self.env.env.sim, self.env.env.robots[0])
-        self.env.env.robots[0].grip_action = self.gripper_controller.grip_action # dynamically overload grip action
+        for robot in self.env.env.robots:
+            if robot.has_gripper:
+                robot.grip_action = self.gripper_controller.grip_action # dynamically overload grip action
+
 
 
     def get_observation(self, raw_obs=None):
@@ -130,20 +134,22 @@ class RobomimicKPWrapper(gym.Env):
 
         xpos = []
         J_list = []
-        for geom_name in self.env.env.nuts[0].visual_geoms:
-            xpos.append(self.env.env.sim.data.get_geom_xpos(geom_name).copy())
-            J_list.append(self.get_robot_J(geom_name, 8))
 
-        for geom_name in self.env.env.robots[0].gripper.visual_geoms:
-            xpos.append(self.env.env.sim.data.get_geom_xpos(geom_name).copy())
-            J = self.get_robot_J(geom_name, 9)
-            if 'finger2' in geom_name:
+        xpos = []
+        for entity_type, name in self.env.kp_entities:
+            if entity_type == mujoco.mjtObj.mjOBJ_GEOM:
+                xpos.append(self.env.env.sim.data.get_geom_xpos(name).copy())
+            elif entity_type == mujoco.mjtObj.mjOBJ_SITE:
+                xpos.append(self.env.env.sim.data.get_site_xpos(name).copy())
+            else:
+                raise NotImplementedError(f"type {entity_type} not implemented")
+            J = self.get_robot_J(name, 9)
+            if not (J[:, 8] == 0).all(): # account for right finger
                 J = J[:, [0, 1, 2, 3, 4, 5, 6, 8]]
                 J[:, -1] *= -1
                 J_list.append(J)
             else:
                 J_list.append(J[:, [0, 1, 2, 3, 4, 5, 6, 7]])
-
 
         L = []
         for i, coords in enumerate(xpos):
@@ -320,14 +326,6 @@ class RobomimicKPWrapper(gym.Env):
         gripper_qpos = self.env.env.sim.data.qpos[gripper_indexes].copy()
         return np.append(robot_qpos, gripper_qpos[0])
     
-
-    def get_J(self):
-        eef_name = "gripper0_grip_site"
-        J_pos = np.array(self.env.env.sim.data.get_site_jacp(eef_name).reshape((3, -1))[:, 8])
-        J_ori = np.array(self.env.env.sim.data.get_site_jacr(eef_name).reshape((3, -1))[:, 8])
-        J_full = np.array(np.vstack([J_pos, J_ori]))
-        return J_full
-
     def initialize_J(self):
         epsilon = 0.1 # consider getting from action range
         #self.J = np.zeros((self.action_space.shape[0], self.env.action_dimension))

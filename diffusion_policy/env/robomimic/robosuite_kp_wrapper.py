@@ -5,10 +5,13 @@ import gym
 from gym import spaces
 from omegaconf import OmegaConf
 from robomimic.envs.env_robosuite import EnvRobosuite
+import mujoco
 
 import robomimic.utils.obs_utils as ObsUtils
 from robosuite.utils.observables import Observable, sensor
 import robosuite.utils.transform_utils as T
+
+from diffusion_policy.common.robomimic_util import get_keypoint_entities
 
 class RobosuiteKpWrapper(EnvRobosuite):
     """Wrapper class for robosuite environments (https://github.com/ARISE-Initiative/robosuite)"""
@@ -20,11 +23,15 @@ class RobosuiteKpWrapper(EnvRobosuite):
         use_image_obs=False, 
         use_depth_obs=False, 
         postprocess_visual_obs=True,
+        keypoint_entities=None,
         **kwargs,
     ):
         super().__init__(env_name, render, render_offscreen, use_image_obs, use_depth_obs, postprocess_visual_obs, **kwargs)
+
+        self.kp_entities = get_keypoint_entities(self.env)
         for camera_name in self.env.camera_names:
             self._add_keypoint_observables(camera_name)
+
 
     def get_observation(self, di=None):
         """
@@ -82,23 +89,25 @@ class RobosuiteKpWrapper(EnvRobosuite):
         camera_height = self.env.camera_heights[camera_idx]
         camera_width = self.env.camera_widths[camera_idx]
         P = self.get_camera_transform_matrix(camera_name, camera_height, camera_width)
-        R = self.get_camera_extrinsic_matrix(camera_name)
 
         @sensor(modality=modality)
         def keypoints(obs_cache):
-            xpos = []
-            for geom_name in self.env.nuts[0].visual_geoms:
-                xpos.append(self.env.sim.data.get_geom_xpos(geom_name).copy())
 
-            for geom_name in self.env.robots[0].gripper.visual_geoms:
-                xpos.append(self.env.sim.data.get_geom_xpos(geom_name).copy())
+            xpos = []
+            for entity_type, name in self.kp_entities :
+                if entity_type == mujoco.mjtObj.mjOBJ_GEOM:
+                    xpos.append(self.env.sim.data.get_geom_xpos(name).copy())
+                elif entity_type == mujoco.mjtObj.mjOBJ_SITE:
+                    xpos.append(self.env.sim.data.get_site_xpos(name).copy())
+                else:
+                    raise NotImplementedError(f"type {entity_type} not implemented")
 
             xpos = np.array(xpos)
             xpos = np.hstack((xpos, np.ones((xpos.shape[0], 1))))
             projected = P @ xpos.T
-            normalized = (projected / projected[2, :]).T
-            xpos_camera = (T.pose_inv(R) @ xpos.T).T
-            normalized[:, 2] = xpos_camera[:, 2]
+            depth = projected[2, :]
+            normalized = (projected / depth).T
+            normalized[:, 2] = depth
             return normalized[:, :3]
 
         kp_obs = Observable(

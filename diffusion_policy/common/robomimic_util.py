@@ -6,6 +6,9 @@ import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
 from scipy.spatial.transform import Rotation
+import mujoco
+
+from robosuite.environments.manipulation.nut_assembly import NutAssemblySquare
 
 from robomimic.config import config_factory
 
@@ -175,3 +178,20 @@ class RobomimicAbsoluteActionConverter:
             'rot': max_next_eef_rot_dist
         }
         return info
+
+
+def get_keypoint_entities(env):
+    """Returns a list of tuples (mjobj type, name) for the env keypoints.
+    """
+    if isinstance(env, NutAssemblySquare):
+        return [
+            (mujoco.mjtObj.mjOBJ_GEOM, 'SquareNut_g0_visual'), 
+            (mujoco.mjtObj.mjOBJ_GEOM, 'SquareNut_g1_visual'),
+            (mujoco.mjtObj.mjOBJ_GEOM, 'SquareNut_g2_visual'),
+            (mujoco.mjtObj.mjOBJ_GEOM, 'SquareNut_g3_visual'),
+            (mujoco.mjtObj.mjOBJ_GEOM, 'SquareNut_g4_visual'),
+            (mujoco.mjtObj.mjOBJ_GEOM, 'gripper0_hand_visual'), 
+            (mujoco.mjtObj.mjOBJ_GEOM, 'gripper0_finger1_visual'), 
+            (mujoco.mjtObj.mjOBJ_GEOM, 'gripper0_finger2_visual')]
+    else:
+        raise NotImplementedError(f"Keypoints not specified for env {env}")
