@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+from functools import partial
 
 from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
@@ -11,15 +12,29 @@ from diffusion_policy.model.diffusion.conditional_unet1d import ConditionalUnet1
 from diffusion_policy.model.diffusion.mask_generator import LowdimMaskGenerator
 from diffusion_policy.model.vision.multi_image_obs_encoder import MultiImageObsEncoder
 from diffusion_policy.common.pytorch_util import dict_apply
+from diffusion_policy.common.k_diffusion.score_wrappers import Denoiser
+import diffusion_policy.common.k_diffusion.utils as utils
+from diffusion_policy.common.k_diffusion.gc_sampling import get_sigmas_exponential, sample_ddim, sample_euler_ancestral
+
+# replace with direct imports
+from diffusion_policy.common.k_diffusion.gc_sampling import *
 
 class DiffusionUnetImagePolicy(BaseImagePolicy):
     def __init__(self, 
             shape_meta: dict,
-            noise_scheduler: DDPMScheduler,
             obs_encoder: MultiImageObsEncoder,
             horizon, 
             n_action_steps, 
             n_obs_steps,
+            rho: float,
+            num_sampling_steps: int,
+            sampler_type: str,
+            sigma_data: float,
+            sigma_min: float,
+            sigma_max: float,
+            sigma_sample_density_type: str,
+            sigma_sample_density_mean: float,
+            sigma_sample_density_std: float,
             num_inference_steps=None,
             obs_as_global_cond=True,
             diffusion_step_embed_dim=256,
@@ -27,6 +42,7 @@ class DiffusionUnetImagePolicy(BaseImagePolicy):
             kernel_size=5,
             n_groups=8,
             cond_predict_scale=True,
+
             # parameters passed to step
             **kwargs):
         super().__init__()
@@ -45,7 +61,7 @@ class DiffusionUnetImagePolicy(BaseImagePolicy):
             input_dim = action_dim
             global_cond_dim = obs_feature_dim * n_obs_steps
 
-        model = ConditionalUnet1D(
+        inner_model = ConditionalUnet1D(
             input_dim=input_dim,
             local_cond_dim=None,
             global_cond_dim=global_cond_dim,
@@ -56,9 +72,11 @@ class DiffusionUnetImagePolicy(BaseImagePolicy):
             cond_predict_scale=cond_predict_scale
         )
 
+        model = Denoiser(inner_model, sigma_data)
+
         self.obs_encoder = obs_encoder
         self.model = model
-        self.noise_scheduler = noise_scheduler
+        self.noise_scheduler = "exponential"
         self.mask_generator = LowdimMaskGenerator(
             action_dim=action_dim,
             obs_dim=0 if obs_as_global_cond else obs_feature_dim,
@@ -75,9 +93,16 @@ class DiffusionUnetImagePolicy(BaseImagePolicy):
         self.obs_as_global_cond = obs_as_global_cond
         self.kwargs = kwargs
 
-        if num_inference_steps is None:
-            num_inference_steps = noise_scheduler.config.num_train_timesteps
-        self.num_inference_steps = num_inference_steps
+        self.sampler_type = sampler_type
+        self.num_sampling_steps = num_sampling_steps
+        self.sigma_data = sigma_data
+        self.sigma_min = sigma_min
+        self.sigma_max = sigma_max
+        self.rho = rho
+        # training sample density
+        self.sigma_sample_density_type = sigma_sample_density_type
+        self.sigma_sample_density_mean = sigma_sample_density_mean
+        self.sigma_sample_density_std = sigma_sample_density_std        
     
     # ========= inference  ============
     def conditional_sample(self, 
@@ -87,32 +112,35 @@ class DiffusionUnetImagePolicy(BaseImagePolicy):
             # keyword arguments to scheduler.step
             **kwargs
             ):
-        model = self.model
-        scheduler = self.noise_scheduler
 
         trajectory = torch.randn(
             size=condition_data.shape, 
             dtype=condition_data.dtype,
             device=condition_data.device,
             generator=generator)
+        
+        sigmas = self.get_noise_schedule(self.num_sampling_steps, self.noise_scheduler)
+
+        trajectory[condition_mask] = condition_data[condition_mask]
+        trajectory = self.sample_loop(sigmas, trajectory, self.sampler_type, local_cond=local_cond, global_cond=global_cond)
     
-        # set step values
-        scheduler.set_timesteps(self.num_inference_steps)
+        ## set step values
+        #scheduler.set_timesteps(self.num_inference_steps)
 
-        for t in scheduler.timesteps:
-            # 1. apply conditioning
-            trajectory[condition_mask] = condition_data[condition_mask]
+        #for t in scheduler.timesteps:
+        #    # 1. apply conditioning
+        #    trajectory[condition_mask] = condition_data[condition_mask]
 
-            # 2. predict model output
-            model_output = model(trajectory, t, 
-                local_cond=local_cond, global_cond=global_cond)
+        #    # 2. predict model output
+        #    model_output = model(trajectory, t, 
+        #        local_cond=local_cond, global_cond=global_cond)
 
-            # 3. compute previous image: x_t -> x_t-1
-            trajectory = scheduler.step(
-                model_output, t, trajectory, 
-                generator=generator,
-                **kwargs
-                ).prev_sample
+        #    # 3. compute previous image: x_t -> x_t-1
+        #    trajectory = scheduler.step(
+        #        model_output, t, trajectory, 
+        #        generator=generator,
+        #        **kwargs
+        #        ).prev_sample
         
         # finally make sure conditioning is enforced
         trajectory[condition_mask] = condition_data[condition_mask]        
@@ -221,39 +249,155 @@ class DiffusionUnetImagePolicy(BaseImagePolicy):
         # generate impainting mask
         condition_mask = self.mask_generator(trajectory.shape)
 
-        # Sample noise that we'll add to the images
-        noise = torch.randn(trajectory.shape, device=trajectory.device)
-        bsz = trajectory.shape[0]
-        # Sample a random timestep for each image
-        timesteps = torch.randint(
-            0, self.noise_scheduler.config.num_train_timesteps, 
-            (bsz,), device=trajectory.device
-        ).long()
+
+        noise = torch.randn_like(trajectory)
+        sigma = self.make_sample_density()(shape=(batch_size,), device=self.device)
         # Add noise to the clean images according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
-        noisy_trajectory = self.noise_scheduler.add_noise(
-            trajectory, noise, timesteps)
         
         # compute loss mask
         loss_mask = ~condition_mask
 
         # apply conditioning
-        noisy_trajectory[condition_mask] = cond_data[condition_mask]
+        trajectory[condition_mask] = cond_data[condition_mask]
         
         # Predict the noise residual
-        pred = self.model(noisy_trajectory, timesteps, 
+        #pred = self.model(trajectory, sigma, 
+        #    local_cond=local_cond, global_cond=global_cond)
+        
+        loss = self.model.loss(trajectory, noise, sigma,
             local_cond=local_cond, global_cond=global_cond)
 
-        pred_type = self.noise_scheduler.config.prediction_type 
-        if pred_type == 'epsilon':
-            target = noise
-        elif pred_type == 'sample':
-            target = trajectory
-        else:
-            raise ValueError(f"Unsupported prediction type {pred_type}")
 
-        loss = F.mse_loss(pred, target, reduction='none')
         loss = loss * loss_mask.type(loss.dtype)
         loss = reduce(loss, 'b ... -> b (...)', 'mean')
         loss = loss.mean()
         return loss
+    
+    def make_sample_density(self):
+        """ 
+        Generate a sample density function based on the desired type for training the model
+        """
+        sd_config = []
+        
+        if self.sigma_sample_density_type == 'lognormal':
+            loc = self.sigma_sample_density_mean  
+            scale = self.sigma_sample_density_std 
+            return partial(utils.rand_log_normal, loc=loc, scale=scale)
+        
+        if self.sigma_sample_density_type == 'loglogistic':
+            loc = sd_config['loc'] if 'loc' in sd_config else math.log(self.sigma_data)
+            scale = sd_config['scale'] if 'scale' in sd_config else 0.5
+            min_value = sd_config['min_value'] if 'min_value' in sd_config else self.sigma_min
+            max_value = sd_config['max_value'] if 'max_value' in sd_config else self.sigma_max
+            return partial(utils.rand_log_logistic, loc=loc, scale=scale, min_value=min_value, max_value=max_value)
+        
+        if self.sigma_sample_density_type == 'loguniform':
+            min_value = sd_config['min_value'] if 'min_value' in sd_config else self.sigma_min
+            max_value = sd_config['max_value'] if 'max_value' in sd_config else self.sigma_max
+            return partial(utils.rand_log_uniform, min_value=min_value, max_value=max_value)
+        if self.sigma_sample_density_type == 'uniform':
+            return partial(utils.rand_uniform, min_value=self.sigma_min, max_value=self.sigma_max)
+        
+        if self.sigma_sample_density_type == 'v-diffusion':
+            min_value = self.min_value if 'min_value' in sd_config else self.sigma_min
+            max_value = sd_config['max_value'] if 'max_value' in sd_config else self.sigma_max
+            return partial(utils.rand_v_diffusion, sigma_data=self.sigma_data, min_value=min_value, max_value=max_value)
+        if self.sigma_sample_density_type == 'discrete':
+            sigmas = self.get_noise_schedule(self.n_sampling_steps, 'exponential')
+            return partial(utils.rand_discrete, values=sigmas)
+        if self.sigma_sample_density_type == 'split-lognormal':
+            loc = sd_config['mean'] if 'mean' in sd_config else sd_config['loc']
+            scale_1 = sd_config['std_1'] if 'std_1' in sd_config else sd_config['scale_1']
+            scale_2 = sd_config['std_2'] if 'std_2' in sd_config else sd_config['scale_2']
+            return partial(utils.rand_split_log_normal, loc=loc, scale_1=scale_1, scale_2=scale_2)
+        else:
+            raise ValueError('Unknown sample density type')
+
+    def sample_loop(
+            self, 
+            sigmas, 
+            x_t: torch.Tensor,
+            sampler_type: str,
+            local_cond,
+            global_cond,
+            extra_args={}, 
+            ):
+            """
+            Main method to generate samples depending on the chosen sampler type for rollouts
+            """
+            # get the s_churn 
+            s_churn = extra_args['s_churn'] if 's_churn' in extra_args else 0
+            s_min = extra_args['s_min'] if 's_min' in extra_args else 0
+            use_scaler = extra_args['use_scaler'] if 'use_scaler' in extra_args else False
+            # extra_args.pop('s_churn', None)
+            # extra_args.pop('use_scaler', None)
+            keys = ['s_churn', 'keep_last_actions']
+            if bool(extra_args):
+                reduced_args = {x:extra_args[x] for x in keys}
+            else:
+                reduced_args = {}
+            
+            if use_scaler:
+                scaler = self.scaler
+            else:
+                scaler=None
+            # ODE deterministic
+            #if sampler_type == 'lms':
+            #    x_0 = sample_lms(self.model, state, x_t, goal, sigmas, scaler=scaler, disable=True, extra_args=reduced_args)
+            ## ODE deterministic can be made stochastic by S_churn != 0
+            #elif sampler_type == 'heun':
+            #    x_0 = sample_heun(self.model, state, x_t, goal, sigmas, scaler=scaler, s_churn=s_churn, s_tmin=s_min, disable=True)
+            ## ODE deterministic 
+            #elif sampler_type == 'euler':
+            #    x_0 = sample_euler(self.model, state, x_t, goal, sigmas, scaler=scaler, disable=True)
+            ## SDE stochastic
+            #elif sampler_type == 'ancestral':
+            #    x_0 = sample_dpm_2_ancestral(self.model, state, x_t, goal, sigmas, scaler=scaler, disable=True) 
+            ## SDE stochastic: combines an ODE euler step with an stochastic noise correcting step
+            if sampler_type == 'euler_ancestral':
+                x_0 = sample_euler_ancestral(self.model, x_t, sigmas, scaler=scaler, disable=True, local_cond=local_cond, global_cond=global_cond)
+            ## ODE deterministic
+            #elif sampler_type == 'dpm':
+            #    x_0 = sample_dpm_2(self.model, state, x_t, goal, sigmas, disable=True)
+            elif sampler_type == 'ddim':
+                x_0 = sample_ddim(self.model, x_t, sigmas, scaler=scaler, disable=True, local_cond=local_cond, global_cond=global_cond)
+            ## ODE deterministic
+            #elif sampler_type == 'dpm_adaptive':
+            #    x_0 = sample_dpm_adaptive(self.model, state, x_t, goal, sigmas[-2].item(), sigmas[0].item(), disable=True)
+            ## ODE deterministic
+            #elif sampler_type == 'dpm_fast':
+            #    x_0 = sample_dpm_fast(self.model, state, x_t, goal, sigmas[-2].item(), sigmas[0].item(), len(sigmas), disable=True)
+            ## 2nd order solver
+            #elif sampler_type == 'dpmpp_2s_ancestral':
+            #    x_0 = sample_dpmpp_2s_ancestral(self.model, state, x_t, goal, sigmas, scaler=scaler, disable=True)
+            #elif sampler_type == 'dpmpp_2s':
+            #    x_0 = sample_dpmpp_2s(self.model, state, x_t, goal, sigmas, scaler=scaler, disable=True)
+            ## 2nd order solver
+            #elif sampler_type == 'dpmpp_2m':
+            #    x_0 = sample_dpmpp_2m(self.model, state, x_t, goal, sigmas, scaler=scaler, disable=True)
+            #elif sampler_type == 'dpmpp_2m_sde':
+            #    x_0 = sample_dpmpp_sde(self.model, state, x_t, goal, sigmas, scaler=scaler, disable=True)
+            else:
+                raise ValueError('desired sampler type not found!')
+            return x_0 
+
+    def get_noise_schedule(self, n_sampling_steps, noise_schedule_type):
+        """
+        Get the noise schedule for the sampling steps
+        """
+        if noise_schedule_type == 'karras':
+            return get_sigmas_karras(n_sampling_steps, self.sigma_min, self.sigma_max, self.rho, self.device)
+        elif noise_schedule_type == 'exponential':
+            return get_sigmas_exponential(n_sampling_steps, self.sigma_min, self.sigma_max, self.device)
+        elif noise_schedule_type == 'vp':
+            return get_sigmas_vp(n_sampling_steps, device=self.device)
+        elif noise_schedule_type == 'linear':
+            return get_sigmas_linear(n_sampling_steps, self.sigma_min, self.sigma_max, device=self.device)
+        elif noise_schedule_type == 'cosine_beta':
+            return cosine_beta_schedule(n_sampling_steps, device=self.device)
+        elif noise_schedule_type == 've':
+            return get_sigmas_ve(n_sampling_steps, self.sigma_min, self.sigma_max, device=self.device)
+        elif noise_schedule_type == 'iddpm':
+            return get_iddpm_sigmas(n_sampling_steps, self.sigma_min, self.sigma_max, device=self.device)
+        raise ValueError('Unknown noise schedule type')
