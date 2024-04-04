@@ -4,6 +4,7 @@ python eval.py --checkpoint data/image/pusht/diffusion_policy_cnn/train_0/checkp
 """
 
 import sys
+from omegaconf import OmegaConf, open_dict
 # use line-buffering for both stdout and stderr
 sys.stdout = open(sys.stdout.fileno(), mode='w', buffering=1)
 sys.stderr = open(sys.stderr.fileno(), mode='w', buffering=1)
@@ -23,8 +24,8 @@ from diffusion_policy.workspace.base_workspace import BaseWorkspace
 @click.option('-o', '--output_dir', required=True)
 @click.option('-d', '--device', default='cuda:0')
 def main(checkpoint, output_dir, device):
-    if os.path.exists(output_dir):
-        click.confirm(f"Output path {output_dir} already exists! Overwrite?", abort=True)
+    #if os.path.exists(output_dir):
+    #    click.confirm(f"Output path {output_dir} already exists! Overwrite?", abort=True)
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     # load checkpoint
@@ -43,6 +44,12 @@ def main(checkpoint, output_dir, device):
     device = torch.device(device)
     policy.to(device)
     policy.eval()
+
+    cfg.task.env_runner['n_test'] = 0
+    cfg.task.env_runner['n_train'] = 1
+    with open_dict(cfg.task.env_runner):
+        cfg.task.env_runner['render_args'] = {"height": 256, "width": 256}
+        # cfg.task.env_runner['mode'] = 'human'
     
     # run eval
     env_runner = hydra.utils.instantiate(

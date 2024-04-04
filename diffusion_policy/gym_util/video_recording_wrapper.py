@@ -3,7 +3,7 @@ import numpy as np
 from diffusion_policy.real_world.video_recorder import VideoRecorder
 import cv2
 
-class VideoRecordingWrapper(gym.Wrapper):
+class  VideoRecordingWrapper(gym.Wrapper):
     def __init__(self, 
             env, 
             video_recoder: VideoRecorder,
@@ -11,6 +11,7 @@ class VideoRecordingWrapper(gym.Wrapper):
             file_path=None,
             steps_per_render=1,
             render_seq=True,
+            render_args={},
             **kwargs
         ):
         """
@@ -19,11 +20,11 @@ class VideoRecordingWrapper(gym.Wrapper):
         super().__init__(env)
         
         self.mode = mode
-        self.render_kwargs = kwargs
         self.steps_per_render = steps_per_render
         self.file_path = file_path
         self.video_recoder = video_recoder
         self.render_seq = render_seq
+        self.render_args = render_args
 
         self.step_count = 0
 
@@ -46,15 +47,24 @@ class VideoRecordingWrapper(gym.Wrapper):
                 self.video_recoder.start(self.file_path)
 
             frame = self.env.render(
-                mode=self.mode, **self.render_kwargs)
+                mode=self.mode, **self.render_args).copy()
             if self.render_seq:
                 traj_len = action['action_seq'].shape[0]
                 xy_action = action['action_seq'].reshape(traj_len, -1, 3)[:, :, :2]
-                #scale = self.env.render_size / self.env.window_size
-                scale = 1
+                if "width" in self.render_args:
+                    scale_x = self.render_args['width'] / self.env.camera_width
+                else:
+                    scale_x = 1
+
+                if "height" in self.render_args:
+                    scale_y = self.render_args['height'] / self.env.camera_height
+                else:
+                    scale_y = 1
                 for i in range(xy_action.shape[1]):
-                    traj = xy_action[:, i, :]
-                    traj = (traj * scale).astype(np.int32)
+                    traj = xy_action[:, i, :].copy()
+                    traj[:, 0] = traj[:, 0] * scale_x
+                    traj[:, 1] = traj[:, 1] * scale_y
+                    traj = traj.astype(np.int32)
                     traj = traj.reshape((-1, 1, 2))
                     frame = cv2.polylines(frame, [traj], isClosed=False, color=(255, 0, 0), thickness=1)
             if self.mode != "human":

@@ -95,7 +95,8 @@ class RobomimicKeypointsRunner(BaseImageRunner):
             abs_action=False,
             tqdm_interval_sec=5.0,
             n_envs=None,
-            estimate_J=True
+            estimate_J=True,
+            render_args={"height": 84, "width": 84},
         ):
         super().__init__(output_dir)
 
@@ -144,12 +145,13 @@ class RobomimicKeypointsRunner(BaseImageRunner):
                     ),
                     file_path=None,
                     steps_per_render=steps_per_render,
-                    render_seq=True
+                    render_seq=True,
+                    render_args=render_args
                 ),
                 n_obs_steps=n_obs_steps,
                 n_action_steps=n_action_steps,
                 max_episode_steps=max_steps,
-                render_seq=True
+                render_seq=True,
             )
         
         # For each process the OpenGL context can only be initialized once

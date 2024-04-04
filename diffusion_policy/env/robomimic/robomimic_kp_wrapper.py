@@ -80,6 +80,10 @@ class RobomimicKPWrapper(gym.Env):
         for robot in self.env.env.robots:
             if robot.has_gripper:
                 robot.grip_action = self.gripper_controller.grip_action # dynamically overload grip action
+        camera_name = 'agentview'
+        camera_idx = self.env.env.camera_names.index(camera_name)
+        self.camera_height = self.env.env.camera_heights[camera_idx]
+        self.camera_width = self.env.env.camera_widths[camera_idx]
 
 
 
@@ -313,12 +317,10 @@ class RobomimicKPWrapper(gym.Env):
 
         return obs, reward, done, info
 
-    def render(self, mode='rgb_array'):
-        if self.render_cache is None:
-            raise RuntimeError('Must run reset or step before render.')
-        img = np.moveaxis(self.render_cache, 0, -1)
-        img = (img * 255).astype(np.uint8)
+    def render(self, mode='rgb_array', height=84, width=84):
+        img = self.env.render(mode=mode, height=height, width=width)
         return img
+
     
     def get_qpos(self):
         robot_qpos = self.env.env.robots[0]._joint_positions.copy()
