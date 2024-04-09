@@ -67,6 +67,16 @@ class  VideoRecordingWrapper(gym.Wrapper):
                     traj = traj.astype(np.int32)
                     traj = traj.reshape((-1, 1, 2))
                     frame = cv2.polylines(frame, [traj], isClosed=False, color=(255, 0, 0), thickness=1)
+                    for j in range(traj.shape[0]):
+                        frame = cv2.circle(frame, tuple(traj[j, 0]), 1, (255, 0, 0), -1)
+                current_kp = result[0]['agentview_keypoints'].copy().reshape(-1, 3)
+                current_kp[:, 0] = current_kp[:, 0] * scale_x
+                current_kp[:, 1] = current_kp[:, 1] * scale_y
+                current_kp = current_kp.astype(np.int32)
+
+                for i in range(current_kp.shape[0]):
+                    frame = cv2.circle(frame, (current_kp[i, 0], current_kp[i, 1]), 1, (0, 0, 255), -1)
+                
             if self.mode != "human":
                 assert frame.dtype == np.uint8
                 self.video_recoder.write_frame(frame)

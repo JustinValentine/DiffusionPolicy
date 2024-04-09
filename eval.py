@@ -44,9 +44,13 @@ def main(checkpoint, output_dir, device):
     device = torch.device(device)
     policy.to(device)
     policy.eval()
-
-    cfg.task.env_runner['n_test'] = 0
-    cfg.task.env_runner['n_train'] = 1
+    
+    n_runs = 10
+    cfg.task.env_runner['n_test'] = n_runs
+    cfg.task.env_runner['n_test_vis'] = n_runs
+    cfg.task.env_runner['n_train'] = 0
+    cfg.task.env_runner['test_start_seed'] = 49
+    cfg.task.env_runner['n_envs'] = None
     with open_dict(cfg.task.env_runner):
         cfg.task.env_runner['render_args'] = {"height": 256, "width": 256}
         # cfg.task.env_runner['mode'] = 'human'
