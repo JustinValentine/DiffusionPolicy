@@ -158,7 +158,7 @@ task:
         type: rgb
 task_name: pusht_image
 training:
-  checkpoint_every: 50
+  checkpoint_every: 10
   debug: false
   device: cuda:0
   gradient_accumulate_every: 1
