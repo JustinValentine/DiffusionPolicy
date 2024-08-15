@@ -1,4 +1,3 @@
-
 from typing import Union
 import numbers
 import numpy as np
@@ -23,16 +22,15 @@ class JointTrajectoryInterpolator:
             self.single_step = False
             assert np.all(times[1:] >= times[:-1])
 
-            self.interp = si.interp1d(times, joints, 
-                axis=0, assume_sorted=True)
-    
+            self.interp = si.interp1d(times, joints, axis=0, assume_sorted=True)
+
     @property
     def times(self) -> np.ndarray:
         if self.single_step:
             return self._times
         else:
             return self.interp.x
-    
+
     @property
     def joints(self) -> np.ndarray:
         if self.single_step:
@@ -40,9 +38,7 @@ class JointTrajectoryInterpolator:
         else:
             return self.interp.y
 
-    def trim(self, 
-            start_t: float, end_t: float
-            ) -> "JointTrajectoryInterpolator":
+    def trim(self, start_t: float, end_t: float) -> "JointTrajectoryInterpolator":
         assert start_t <= end_t
         times = self.times
         should_keep = (start_t < times) & (times < end_t)
@@ -53,14 +49,17 @@ class JointTrajectoryInterpolator:
         # interpolate
         all_joints = self(all_times)
         return JointTrajectoryInterpolator(times=all_times, joints=all_joints)
-    
-    def drive_to_waypoint(self, 
-            joint, time, curr_time,
-            max_speed=np.inf, 
-        ) -> "JointTrajectoryInterpolator":
-        assert(max_speed > 0)
+
+    def drive_to_waypoint(
+        self,
+        joint,
+        time,
+        curr_time,
+        max_speed=np.inf,
+    ) -> "JointTrajectoryInterpolator":
+        assert max_speed > 0
         time = max(time, curr_time)
-        
+
         curr_joint = self(curr_time)
 
         joint_dist = np.linalg.norm(joint - curr_joint)
@@ -79,13 +78,10 @@ class JointTrajectoryInterpolator:
         final_interp = JointTrajectoryInterpolator(times, joints)
         return final_interp
 
-    def schedule_waypoint(self,
-            joint, time, 
-            max_speed=np.inf, 
-            curr_time=None,
-            last_waypoint_time=None
-        ) -> "JointTrajectoryInterpolator":
-        assert(max_speed > 0)
+    def schedule_waypoint(
+        self, joint, time, max_speed=np.inf, curr_time=None, last_waypoint_time=None
+    ) -> "JointTrajectoryInterpolator":
+        assert max_speed > 0
         if last_waypoint_time is not None:
             assert curr_time is not None
 
@@ -121,7 +117,7 @@ class JointTrajectoryInterpolator:
         # start_time <= end_time <= time (proven by zhenjia)
         # curr_time <= start_time (proven by zhenjia)
         # curr_time <= time (proven by zhenjia)
-        
+
         # time can't change
         # last_waypoint_time can't change
         # curr_time can't change
@@ -158,13 +154,12 @@ class JointTrajectoryInterpolator:
         final_interp = JointTrajectoryInterpolator(times, joints)
         return final_interp
 
-
     def __call__(self, t: Union[numbers.Number, np.ndarray]) -> np.ndarray:
         is_single = False
         if isinstance(t, numbers.Number):
             is_single = True
             t = np.array([t])
-        
+
         joint = np.zeros((len(t), len(self.joints[0])))
         if self.single_step:
             joint[:] = self._joints[0]
@@ -178,4 +173,3 @@ class JointTrajectoryInterpolator:
         if is_single:
             joint = joint[0]
         return joint
-

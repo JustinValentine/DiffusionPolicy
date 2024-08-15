@@ -1,54 +1,50 @@
-
 from tqdm import tqdm
 import numpy as np
-from diffusion_policy.common.joint_trajectory_interpolator import JointTrajectoryInterpolator
+from diffusion_policy.common.joint_trajectory_interpolator import (
+    JointTrajectoryInterpolator,
+)
 from numpy.testing import assert_array_equal
 
 
 def test_basic_joint_trajectory_interpolator():
-    t = np.linspace(0,2,5)
-    joints = np.array([
-        [0],
-        [1],
-        [2],
-    ])
-
-    interp = JointTrajectoryInterpolator(
-        [0,1,2],
-        joints
+    t = np.linspace(0, 2, 5)
+    joints = np.array(
+        [
+            [0],
+            [1],
+            [2],
+        ]
     )
+
+    interp = JointTrajectoryInterpolator([0, 1, 2], joints)
     actual = interp(t)
     expected = np.linspace([0], [2], 5)
     assert_array_equal(actual, expected)
 
-    t = np.linspace(0,2,5)
-    joints = np.array([
-        [0, 0],
-        [1, 1],
-        [2, 2],
-    ])
-
-    interp = JointTrajectoryInterpolator(
-        [0,1,2],
-        joints
+    t = np.linspace(0, 2, 5)
+    joints = np.array(
+        [
+            [0, 0],
+            [1, 1],
+            [2, 2],
+        ]
     )
+
+    interp = JointTrajectoryInterpolator([0, 1, 2], joints)
     actual = interp(t)
     expected = np.linspace([0, 0], [2, 2], 5)
     assert_array_equal(actual, expected)
 
 
 def test_joint_trajectory_interpolator():
-    t = np.linspace(-1,5,100)
-    interp = JointTrajectoryInterpolator(
-        [0,1,3],
-        np.zeros((3,6))
-    )
+    t = np.linspace(-1, 5, 100)
+    interp = JointTrajectoryInterpolator([0, 1, 3], np.zeros((3, 6)))
     times = interp.times
     joints = interp.joints
-    assert (times == [0,1,3]).all()
-    assert (joints == np.zeros((3,6))).all()
+    assert (times == [0, 1, 3]).all()
+    assert (joints == np.zeros((3, 6))).all()
 
-    trimmed_interp = interp.trim(-1,4)
+    trimmed_interp = interp.trim(-1, 4)
     assert len(trimmed_interp.times) == 5
     trimmed_interp(t)
 
@@ -72,6 +68,7 @@ def test_joint_trajectory_interpolator():
     assert len(trimmed_interp.times) == 1
     trimmed_interp(t)
 
+
 def test_schedule_waypoint():
     # fuzz testing
     for i in tqdm(range(10000)):
@@ -91,15 +88,16 @@ def test_schedule_waypoint():
                 curr_time = None
 
         interp = JointTrajectoryInterpolator(
-            times=waypoint_times, 
-            joints=waypoint_joints)
+            times=waypoint_times, joints=waypoint_joints
+        )
         new_interp = interp.schedule_waypoint(
             joint=new_joint,
             time=insert_time,
             max_speed=max_speed,
             curr_time=curr_time,
-            last_waypoint_time=last_waypoint_time
+            last_waypoint_time=last_waypoint_time,
         )
+
 
 def test_drive_to_waypoint():
     # fuzz testing
@@ -114,8 +112,8 @@ def test_drive_to_waypoint():
         new_joint = rng.normal(0, 3, size=6)
 
         interp = JointTrajectoryInterpolator(
-            times=waypoint_times, 
-            joints=waypoint_joints)
+            times=waypoint_times, joints=waypoint_joints
+        )
         new_interp = interp.drive_to_waypoint(
             joint=new_joint,
             time=insert_time,
@@ -124,5 +122,5 @@ def test_drive_to_waypoint():
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_drive_to_waypoint()
