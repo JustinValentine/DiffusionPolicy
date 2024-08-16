@@ -1,11 +1,11 @@
-from typing import Optional
+from typing import Optional, Any
 import pathlib
 import numpy as np
 import time
 import shutil
 import math
 from multiprocessing.managers import SharedMemoryManager
-from diffusion_policy.real_world.rtde_interpolation_controller import RTDEInterpolationController
+from diffusion_policy.real_world.rtde_interpolation_controller import RTDEInterpolationController, WAMInterpolationController
 from diffusion_policy.real_world.multi_realsense import MultiRealsense, SingleRealsense
 from diffusion_policy.real_world.video_recorder import VideoRecorder
 from diffusion_policy.common.timestamp_accumulator import (
@@ -17,6 +17,7 @@ from diffusion_policy.real_world.multi_camera_visualizer import MultiCameraVisua
 from diffusion_policy.common.replay_buffer import ReplayBuffer
 from diffusion_policy.common.cv2_util import (
     get_image_transform, optimal_row_cols)
+from abc import ABC, abstractmethod
 
 DEFAULT_OBS_KEY_MAP = {
     # robot
@@ -29,11 +30,10 @@ DEFAULT_OBS_KEY_MAP = {
     'timestamp': 'timestamp'
 }
 
-class RealEnv:
+class BaseRealEnv(ABC):
     def __init__(self, 
             # required params
             output_dir,
-            robot_ip,
             # env params
             frequency=10,
             n_obs_steps=2,
@@ -60,7 +60,8 @@ class RealEnv:
             enable_multi_cam_vis=True,
             multi_cam_vis_resolution=(1280,720),
             # shared memory
-            shm_manager=None
+            shm_manager=None,
+            **kwargs
             ):
         assert frequency <= video_capture_fps
         output_dir = pathlib.Path(output_dir)
@@ -155,27 +156,16 @@ class RealEnv:
         if not init_joints:
             j_init = None
 
-        robot = RTDEInterpolationController(
+        self.realsense = realsense
+        self.robot = self.create_robot(
             shm_manager=shm_manager,
-            robot_ip=robot_ip,
-            frequency=125, # UR5 CB3 RTDE
-            lookahead_time=0.1,
-            gain=300,
             max_pos_speed=max_pos_speed*cube_diag,
             max_rot_speed=max_rot_speed*cube_diag,
-            launch_timeout=3,
-            tcp_offset_pose=[0,0,tcp_offset,0,0,0],
-            payload_mass=None,
-            payload_cog=None,
-            joints_init=j_init,
-            joints_init_speed=1.05,
-            soft_real_time=False,
-            verbose=False,
-            receive_keys=None,
-            get_max_k=max_obs_buffer_size
-            )
-        self.realsense = realsense
-        self.robot = robot
+            tcp_offset=[0,0,tcp_offset,0,0,0],
+            j_init=j_init,
+            max_obs_buffer_size=max_obs_buffer_size,
+            **kwargs
+        )
         self.multi_cam_vis = multi_cam_vis
         self.video_capture_fps = video_capture_fps
         self.frequency = frequency
@@ -196,7 +186,21 @@ class RealEnv:
         self.stage_accumulator = None
 
         self.start_time = None
-    
+
+    @abstractmethod
+    def create_robot(
+            self,
+            shm_manager,
+            max_pos_speed,
+            max_rot_speed,
+            tcp_offset,
+            j_init,
+            max_obs_buffer_size,
+            frequency=125,
+            **kwargs
+        ) -> Any:
+        pass
+
     # ======== start-stop API =============
     @property
     def is_ready(self):
@@ -432,4 +436,176 @@ class RealEnv:
         if this_video_dir.exists():
             shutil.rmtree(str(this_video_dir))
         print(f'Episode {episode_id} dropped!')
+
+
+class RealEnv(BaseRealEnv):
+    def __init__(self, 
+            # required params
+            output_dir,
+            robot_ip,
+            # env params
+            frequency=10,
+            n_obs_steps=2,
+            # obs
+            obs_image_resolution=(640,480),
+            max_obs_buffer_size=30,
+            camera_serial_numbers=None,
+            obs_key_map=DEFAULT_OBS_KEY_MAP,
+            obs_float32=False,
+            # action
+            max_pos_speed=0.25,
+            max_rot_speed=0.6,
+            # robot
+            tcp_offset=0.13,
+            init_joints=False,
+            # video capture params
+            video_capture_fps=30,
+            video_capture_resolution=(1280,720),
+            # saving params
+            record_raw_video=True,
+            thread_per_video=2,
+            video_crf=21,
+            # vis params
+            enable_multi_cam_vis=True,
+            multi_cam_vis_resolution=(1280,720),
+            # shared memory
+            shm_manager=None
+            ):
+        super().__init__(
+            output_dir,
+            robot_ip=robot_ip, 
+            frequency=frequency,
+            n_obs_steps=n_obs_steps,
+            obs_image_resolution=obs_image_resolution,
+            max_obs_buffer_size=max_obs_buffer_size,
+            camera_serial_numbers=camera_serial_numbers,
+            obs_key_map=obs_key_map,
+            obs_float32=obs_float32,
+            max_pos_speed=max_pos_speed,
+            max_rot_speed=max_rot_speed,
+            tcp_offset=tcp_offset,
+            init_joints=init_joints,
+            video_capture_fps=video_capture_fps,
+            video_capture_resolution=video_capture_resolution,
+            record_raw_video=record_raw_video,
+            thread_per_video=thread_per_video,
+            video_crf=video_crf,
+            enable_multi_cam_vis=enable_multi_cam_vis,
+            multi_cam_vis_resolution=multi_cam_vis_resolution,
+            shm_manager=shm_manager
+        )
+
+
+
+    def create_robot(
+            self,
+            shm_manager,
+            max_pos_speed,
+            max_rot_speed,
+            tcp_offset,
+            j_init,
+            max_obs_buffer_size,
+            frequency=125,
+            **kwargs
+        ):
+        robot = RTDEInterpolationController(
+            shm_manager=shm_manager,
+            robot_ip=kwargs['robot_ip'],
+            frequency=frequency,
+            lookahead_time=0.1,
+            gain=300,
+            max_pos_speed=max_pos_speed,
+            max_rot_speed=max_rot_speed,
+            launch_timeout=3,
+            tcp_offset_pose=[0,0,tcp_offset,0,0,0],
+            payload_mass=None,
+            payload_cog=None,
+            joints_init=j_init,
+            joints_init_speed=1.05,
+            soft_real_time=False,
+            verbose=False,
+            receive_keys=None,
+            get_max_k=max_obs_buffer_size
+        )
+        return robot
+    
+
+class RealWAMEnv(BaseRealEnv):
+    def __init__(self, 
+            # required params
+            output_dir,
+            # env params
+            frequency=10,
+            n_obs_steps=2,
+            # obs
+            obs_image_resolution=(640,480),
+            max_obs_buffer_size=30,
+            camera_serial_numbers=None,
+            obs_key_map=DEFAULT_OBS_KEY_MAP,
+            obs_float32=False,
+            # action
+            max_pos_speed=0.25,
+            max_rot_speed=0.6,
+            # robot
+            init_joints=False,
+            # video capture params
+            video_capture_fps=30,
+            video_capture_resolution=(1280,720),
+            # saving params
+            record_raw_video=True,
+            thread_per_video=2,
+            video_crf=21,
+            # vis params
+            enable_multi_cam_vis=True,
+            multi_cam_vis_resolution=(1280,720),
+            # shared memory
+            shm_manager=None
+            ):
+        super().__init__(
+            output_dir,
+            frequency=frequency,
+            n_obs_steps=n_obs_steps,
+            obs_image_resolution=obs_image_resolution,
+            max_obs_buffer_size=max_obs_buffer_size,
+            camera_serial_numbers=camera_serial_numbers,
+            obs_key_map=obs_key_map,
+            obs_float32=obs_float32,
+            max_pos_speed=max_pos_speed,
+            max_rot_speed=max_rot_speed,
+            init_joints=init_joints,
+            video_capture_fps=video_capture_fps,
+            video_capture_resolution=video_capture_resolution,
+            record_raw_video=record_raw_video,
+            thread_per_video=thread_per_video,
+            video_crf=video_crf,
+            enable_multi_cam_vis=enable_multi_cam_vis,
+            multi_cam_vis_resolution=multi_cam_vis_resolution,
+            shm_manager=shm_manager
+        )
+
+
+
+    def create_robot(
+            self,
+            shm_manager,
+            max_pos_speed,
+            max_rot_speed,
+            tcp_offset,
+            j_init,
+            max_obs_buffer_size,
+            frequency=125,
+            **kwargs
+        ):
+        robot = WAMInterpolationController(
+            shm_manager=shm_manager,
+            rt_topic=kwargs['rt_topic'],
+            frequency=frequency,
+            max_pos_speed=max_pos_speed,
+            max_rot_speed=max_rot_speed,
+            joints_init=j_init,
+            receive_keys=None,
+            get_max_k=max_obs_buffer_size
+        )
+        return robot
+    
 
