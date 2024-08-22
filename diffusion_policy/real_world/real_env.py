@@ -30,6 +30,17 @@ DEFAULT_OBS_KEY_MAP = {
     'timestamp': 'timestamp'
 }
 
+WAM_OBS_KEY_MAP = {
+    # robot
+    'position': 'robot_joint',
+    'velocity': 'robot_joint_vel',
+    'effort': 'robot_joint_torque',
+    'hand_position': 'hand_joint',
+    # timestamps
+    'step_idx': 'step_idx',
+    'timestamp': 'timestamp'
+}
+
 class BaseRealEnv(ABC):
     def __init__(self, 
             # required params
@@ -534,6 +545,7 @@ class RealWAMEnv(BaseRealEnv):
     def __init__(self, 
             # required params
             output_dir,
+            rt_topic,
             # env params
             frequency=10,
             n_obs_steps=2,
@@ -541,7 +553,7 @@ class RealWAMEnv(BaseRealEnv):
             obs_image_resolution=(640,480),
             max_obs_buffer_size=30,
             camera_serial_numbers=None,
-            obs_key_map=DEFAULT_OBS_KEY_MAP,
+            obs_key_map=WAM_OBS_KEY_MAP,
             obs_float32=False,
             # action
             max_pos_speed=0.25,
@@ -561,6 +573,8 @@ class RealWAMEnv(BaseRealEnv):
             # shared memory
             shm_manager=None
             ):
+        self.rt_topic = rt_topic
+        self.action_keys = ['position', 'hand_vel_cmd']
         super().__init__(
             output_dir,
             frequency=frequency,
@@ -594,18 +608,46 @@ class RealWAMEnv(BaseRealEnv):
             j_init,
             max_obs_buffer_size,
             frequency=125,
-            **kwargs
         ):
         robot = WAMInterpolationController(
             shm_manager=shm_manager,
-            rt_topic=kwargs['rt_topic'],
+            rt_topic=self.rt_topic,
             frequency=frequency,
-            max_pos_speed=max_pos_speed,
-            max_rot_speed=max_rot_speed,
+            max_speed=max_pos_speed,
             joints_init=j_init,
             receive_keys=None,
             get_max_k=max_obs_buffer_size
         )
         return robot
+
+
+    def record_action(self, stages=None) -> np.ndarray:
+        assert self.is_ready
+
+        # 125 hz, robot_receive_timestamp
+        last_robot_data = self.robot.get_all_state()
+        robot_timestamps = last_robot_data['robot_receive_timestamp']
+
+        if stages is None:
+            stages = np.zeros_like(robot_timestamps, dtype=np.int64)
+        elif not isinstance(stages, np.ndarray):
+            stages = np.array(stages, dtype=np.int64)
+
+        robot_action_raw = [last_robot_data[key] for key in self.action_keys]
+        robot_action_raw = np.concatenate(robot_action_raw, axis=1)
+
+        if self.action_accumulator is not None:
+            self.action_accumulator.put(
+                robot_action_raw,
+                robot_timestamps
+            )
+        if self.stage_accumulator is not None:
+            self.stage_accumulator.put(
+                stages,
+                robot_timestamps
+            )
+
+        # return obs
+        return robot_action_raw
     
 

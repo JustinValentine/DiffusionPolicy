@@ -1,4 +1,5 @@
 import os
+import rospy
 from re import S
 import time
 import enum
@@ -16,11 +17,17 @@ from diffusion_policy.shared_memory.shared_memory_ring_buffer import SharedMemor
 from diffusion_policy.common.pose_trajectory_interpolator import PoseTrajectoryInterpolator
 from diffusion_policy.common.joint_trajectory_interpolator import JointTrajectoryInterpolator
 
+from sensor_msgs.msg import JointState
+from wam_msgs.msg import RTJointPos
+from wam_srvs.srv import JointMove
+from bhand_teleop_msgs.msg import BhandTeleop
+
 
 class Command(enum.Enum):
     STOP = 0
     SERVO = 1
     SCHEDULE_WAYPOINT = 3
+
 
 class Control(enum.Enum):
     POSE = 0
@@ -438,6 +445,8 @@ class RTDEInterpolationController(BaseInterpolationController):
 class WAMInterpolationController(BaseInterpolationController):
     def __init__(self,
             shm_manager: SharedMemoryManager, 
+            rt_topic,
+            rt_control=False,
             frequency=125, 
             max_speed=0.25, # 5% of max speed
             launch_timeout=3,
@@ -464,27 +473,51 @@ class WAMInterpolationController(BaseInterpolationController):
             get_max_k=get_max_k
         )
 
+        self.rt_topic = rt_topic
+        self.rt_control = rt_control
+
+        self.first_joint_state = False
+        self.first_hand_state = False
+        self.data = dict()
+        self.data["hand_vel_cmd"] = np.zeros((2,), dtype=np.float64)
 
 
+    def joint_state_callback(self, msg):
+        self.data['position'] = np.array(msg.position)
+        self.data['velocity'] = np.array(msg.velocity)
+        self.data['effort'] = np.array(msg.effort)
+        self.first_joint_state = True
+
+    def hand_state_callback(self, msg):
+        self.data['hand_position'] = np.array(msg.position)
+        self.data['hand_velocity'] = np.array(msg.velocity)
+        self.data['hand_effort'] = np.array(msg.effort)
+        self.first_hand_state = True
+
+    def hand_vel_cmd_callback(self, msg):
+        self.data['hand_vel_cmd'] = np.array([msg.spread, msg.grasp])
 
     def create_ring_buffer(self, shm_manager, receive_keys, get_max_k):
 
         if receive_keys is None:
             receive_keys = [
-                'ActualTCPPose',
-                'ActualTCPSpeed',
-                'ActualQ',
-                'ActualQd',
-
-                'TargetTCPPose',
-                'TargetTCPSpeed',
-                'TargetQ',
-                'TargetQd'
+                'position',
+                'velocity',
+                'effort',
+                'hand_position',
+                'hand_vel_cmd',
             ]
-        rtde_r = RTDEReceiveInterface(hostname=self.robot_ip)
         example = dict()
         for key in receive_keys:
-            example[key] = np.array(getattr(rtde_r, 'get'+key)())
+            if key in ['position', 'velocity', 'effort']:
+                example[key] = np.zeros((7,), dtype=np.float64)
+            elif key == 'hand_position':
+                example[key] = np.zeros((8,), dtype=np.float64)
+            elif key == 'hand_vel_cmd':
+                example[key] = np.zeros((2,), dtype=np.float64)
+            else:
+                raise ValueError(f"Unhandled key {key}")
+
         example['robot_receive_timestamp'] = time.time()
         ring_buffer = SharedMemoryRingBuffer.create_from_examples(
             shm_manager=shm_manager,
@@ -501,7 +534,7 @@ class WAMInterpolationController(BaseInterpolationController):
 
         example = {
             'cmd': Command.SERVO.value,
-            'target': np.zeros((6,), dtype=np.float64),
+            'target': np.zeros((9,), dtype=np.float64),
             'duration': 0.0,
             'target_time': 0.0
         }
@@ -515,49 +548,60 @@ class WAMInterpolationController(BaseInterpolationController):
 
     # ========= main loop in process ============
     def run(self):
+        rospy.init_node('wam_controller')
+        self.rt_pub = rospy.Publisher(self.rt_topic, RTJointPos, queue_size=10)
+        self.rt_hand_pub = rospy.Publisher("/bhand/vel_cmd", BhandTeleop, queue_size=10)
+
+        self.joint_state_sub = rospy.Subscriber('/wam/joint_states', JointState, self.joint_state_callback)
+        self.hand_state_sub = rospy.Subscriber('/bhand/joint_states', JointState, self.hand_state_callback)
+        self.hand_vel_cmd_sub = rospy.Subscriber("/bhand/vel_cmd", BhandTeleop, self.hand_vel_cmd_callback)
+
+        self.joint_move = rospy.ServiceProxy('/wam/joint_move', JointMove)
+
 
         try:
 
+            rate = rospy.Rate(self.frequency)
             
             # init pose
             if self.joints_init is not None:
-                assert rtde_c.moveJ(self.joints_init, self.joints_init_speed, 1.4)
+                self.joint_move(self.joints_init)
+
+            while (not self.first_joint_state) or (not self.first_hand_state):
+                rate.sleep()
+
+            print("joint state received")
 
             # main loop
             dt = 1. / self.frequency
-            curr_pose = rtde_r.getActualTCPPose()
+            curr_pos = self.data['position']
             # use monotonic time to make sure the control loop never go backward
             curr_t = time.monotonic()
             last_waypoint_time = curr_t
-            pose_interp = self.interp_cls(
+            pos_interp = self.interp_cls(
                 times=[curr_t],
-                poses=[curr_pose]
+                joints=[curr_pos]
             )
+
             
             iter_idx = 0
             keep_running = True
-            while keep_running:
+            while keep_running and not rospy.is_shutdown():
                 # start control iteration
-                t_start = rtde_c.initPeriod()
 
                 # send command to robot
                 t_now = time.monotonic()
-                # diff = t_now - pose_interp.times[-1]
-                # if diff > 0:
-                #     print('extrapolate', diff)
-                pose_command = pose_interp(t_now)
-                vel = 0.5
-                acc = 0.5
-                assert rtde_c.servoL(pose_command, 
-                    vel, acc, # dummy, not used by ur5
-                    dt, 
-                    self.lookahead_time, 
-                    self.gain)
-                
+
+                if self.rt_control:
+                    pos_command = pos_interp(t_now)
+                    rt_msg = RTJointPos()
+                    rt_msg.joints = pos_command
+                    self.rt_pub.publish(rt_msg)
+
                 # update robot state
                 state = dict()
                 for key in self.receive_keys:
-                    state[key] = np.array(getattr(rtde_r, 'get'+key)())
+                    state[key] = self.data[key]
                 state['robot_receive_timestamp'] = time.time()
                 self.ring_buffer.put(state)
 
@@ -584,32 +628,30 @@ class WAMInterpolationController(BaseInterpolationController):
                         # if we start the next interpolation with curr_pose
                         # the command robot receive will have discontinouity 
                         # and cause jittery robot behavior.
-                        target_pose = command['target']
+                        target_pos = command['target']
                         duration = float(command['duration'])
                         curr_time = t_now + dt
                         t_insert = curr_time + duration
-                        pose_interp = pose_interp.drive_to_waypoint(
-                            pose=target_pose,
+                        pos_interp = pos_interp.drive_to_waypoint(
+                            joint=target_pos,
                             time=t_insert,
                             curr_time=curr_time,
-                            max_pos_speed=self.max_pos_speed,
-                            max_rot_speed=self.max_rot_speed
+                            max_speed=self.max_speed,
                         )
                         last_waypoint_time = t_insert
                         if self.verbose:
                             print("[RTDEPositionalController] New pose target:{} duration:{}s".format(
-                                target_pose, duration))
+                                target_pos, duration))
                     elif cmd == Command.SCHEDULE_WAYPOINT.value:
-                        target_pose = command['target']
+                        target_pos = command['target']
                         target_time = float(command['target_time'])
                         # translate global time to monotonic time
                         target_time = time.monotonic() - time.time() + target_time
                         curr_time = t_now + dt
-                        pose_interp = pose_interp.schedule_waypoint(
-                            pose=target_pose,
+                        pos_interp = pos_interp.schedule_waypoint(
+                            joint=target_pos,
                             time=target_time,
-                            max_pos_speed=self.max_pos_speed,
-                            max_rot_speed=self.max_rot_speed,
+                            max_speed=self.max_speed,
                             curr_time=curr_time,
                             last_waypoint_time=last_waypoint_time
                         )
@@ -619,26 +661,17 @@ class WAMInterpolationController(BaseInterpolationController):
                         break
 
                 # regulate frequency
-                rtde_c.waitPeriod(t_start)
-
+                rate.sleep()
                 # first loop successful, ready to receive command
                 if iter_idx == 0:
                     self.ready_event.set()
                 iter_idx += 1
 
-                if self.verbose:
-                    print(f"[RTDEPositionalController] Actual frequency {1/(time.perf_counter() - t_start)}")
+                # if self.verbose:
+                #     print(f"[RTDEPositionalController] Actual frequency {1/(time.perf_counter() - t_start)}")
 
         finally:
             # manditory cleanup
             # decelerate
-            rtde_c.servoStop()
-
-            # terminate
-            rtde_c.stopScript()
-            rtde_c.disconnect()
-            rtde_r.disconnect()
             self.ready_event.set()
 
-            if self.verbose:
-                print(f"[RTDEPositionalController] Disconnected from robot: {robot_ip}")
