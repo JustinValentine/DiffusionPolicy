@@ -32,10 +32,10 @@ DEFAULT_OBS_KEY_MAP = {
 
 WAM_OBS_KEY_MAP = {
     # robot
-    'position': 'robot_joint',
-    'velocity': 'robot_joint_vel',
-    'effort': 'robot_joint_torque',
-    'hand_position': 'hand_joint',
+    'position': 'robot_qpos',
+    'velocity': 'robot_qvel',
+    'effort': 'robot_qtor',
+    'hand_position': 'hand_qpos',
     # timestamps
     'step_idx': 'step_idx',
     'timestamp': 'timestamp'
