@@ -552,7 +552,7 @@ class WAMInterpolationController(BaseInterpolationController):
         self.rt_pub = rospy.Publisher(self.rt_topic, RTJointPos, queue_size=10)
         self.rt_hand_pub = rospy.Publisher("/bhand/vel_cmd", BhandTeleop, queue_size=10)
 
-        self.joint_state_sub = rospy.Subscriber('/wam/joint_states', JointState, self.joint_state_callback)
+        self.joint_state_sub = rospy.Subscriber('/wam_master_master/follower/joint_states', JointState, self.joint_state_callback)
         self.hand_state_sub = rospy.Subscriber('/bhand/joint_states', JointState, self.hand_state_callback)
         self.hand_vel_cmd_sub = rospy.Subscriber("/bhand/vel_cmd", BhandTeleop, self.hand_vel_cmd_callback)
 
