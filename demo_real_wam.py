@@ -34,7 +34,8 @@ def main(output, vis_camera_idx, init_joints, frequency, command_latency):
         with KeystrokeCounter() as key_counter, \
             RealWAMEnv(
                 output_dir=output, 
-                rt_topic="/wam/jnt_pos_cmd",
+                wam_node_prefix="/wam_master_master/follower",
+                hand_node_prefix="/bhand",
                 # recording resolution
                 obs_image_resolution=(1280,720),
                 frequency=frequency,

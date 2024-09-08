@@ -445,7 +445,8 @@ class RTDEInterpolationController(BaseInterpolationController):
 class WAMInterpolationController(BaseInterpolationController):
     def __init__(self,
             shm_manager: SharedMemoryManager, 
-            rt_topic,
+            wam_node_prefix="/wam_master_master/follower",
+            hand_node_prefix="/bhand",
             rt_control=False,
             frequency=125, 
             max_speed=0.25, # 5% of max speed
@@ -473,8 +474,9 @@ class WAMInterpolationController(BaseInterpolationController):
             get_max_k=get_max_k
         )
 
-        self.rt_topic = rt_topic
+        self.wam_node_prefix = wam_node_prefix
         self.rt_control = rt_control
+        self.hand_node_prefix = hand_node_prefix
 
         self.first_joint_state = False
         self.first_hand_state = False
@@ -549,14 +551,14 @@ class WAMInterpolationController(BaseInterpolationController):
     # ========= main loop in process ============
     def run(self):
         rospy.init_node('wam_controller')
-        self.rt_pub = rospy.Publisher(self.rt_topic, RTJointPos, queue_size=10)
-        self.rt_hand_pub = rospy.Publisher("/bhand/vel_cmd", BhandTeleop, queue_size=10)
+        self.rt_pub = rospy.Publisher(f"{self.wam_node_prefix}/jnt_pos_cmd", RTJointPos, queue_size=10)
+        self.rt_hand_pub = rospy.Publisher("/bhand_mux/bhand_vel", BhandTeleop, queue_size=10)
 
-        self.joint_state_sub = rospy.Subscriber('/wam_master_master/follower/joint_states', JointState, self.joint_state_callback)
-        self.hand_state_sub = rospy.Subscriber('/bhand/joint_states', JointState, self.hand_state_callback)
-        self.hand_vel_cmd_sub = rospy.Subscriber("/bhand/vel_cmd", BhandTeleop, self.hand_vel_cmd_callback)
+        self.joint_state_sub = rospy.Subscriber(f"{self.wam_node_prefix}/joint_states", JointState, self.joint_state_callback)
+        self.hand_state_sub = rospy.Subscriber(f"{self.hand_node_prefix}/joint_states", JointState, self.hand_state_callback)
+        self.hand_vel_cmd_sub = rospy.Subscriber(f"{self.hand_node_prefix}/vel_cmd", BhandTeleop, self.hand_vel_cmd_callback)
 
-        self.joint_move = rospy.ServiceProxy('/wam/joint_move', JointMove)
+        self.joint_move = rospy.ServiceProxy(f"{self.wam_node_prefix}/joint_move", JointMove)
 
 
         try:
@@ -565,7 +567,8 @@ class WAMInterpolationController(BaseInterpolationController):
             
             # init pose
             if self.joints_init is not None:
-                self.joint_move(self.joints_init)
+                # self.joint_move(self.joints_init)
+                pass
 
             while (not self.first_joint_state) or (not self.first_hand_state):
                 rate.sleep()
@@ -575,6 +578,7 @@ class WAMInterpolationController(BaseInterpolationController):
             # main loop
             dt = 1. / self.frequency
             curr_pos = self.data['position']
+            curr_pos = np.append(curr_pos, [0, 0])
             # use monotonic time to make sure the control loop never go backward
             curr_t = time.monotonic()
             last_waypoint_time = curr_t
@@ -595,8 +599,14 @@ class WAMInterpolationController(BaseInterpolationController):
                 if self.rt_control:
                     pos_command = pos_interp(t_now)
                     rt_msg = RTJointPos()
-                    rt_msg.joints = pos_command
+                    rt_msg.rate_limits = np.array([0.1]*7)
+                    rt_msg.joints = pos_command[:7]
                     self.rt_pub.publish(rt_msg)
+
+                    rt_hand_msg = BhandTeleop()
+                    rt_hand_msg.spread = pos_command[7]
+                    rt_hand_msg.grasp = pos_command[8]
+                    self.rt_hand_pub.publish(rt_hand_msg)
 
                 # update robot state
                 state = dict()

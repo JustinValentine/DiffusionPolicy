@@ -345,7 +345,7 @@ class BaseRealEnv(ABC):
         # schedule waypoints
         for i in range(len(new_actions)):
             self.robot.schedule_waypoint(
-                pose=new_actions[i],
+                target=new_actions[i],
                 target_time=new_timestamps[i]
             )
         
@@ -545,7 +545,9 @@ class RealWAMEnv(BaseRealEnv):
     def __init__(self, 
             # required params
             output_dir,
-            rt_topic,
+            wam_node_prefix="/wam_master_master/follower",
+            hand_node_prefix="/bhand",
+            rt_control=False,
             # env params
             frequency=10,
             n_obs_steps=2,
@@ -573,7 +575,9 @@ class RealWAMEnv(BaseRealEnv):
             # shared memory
             shm_manager=None
             ):
-        self.rt_topic = rt_topic
+        self.wam_node_prefix = wam_node_prefix
+        self.hand_node_prefix = hand_node_prefix
+        self.rt_control = rt_control
         self.action_keys = ['position', 'hand_vel_cmd']
         super().__init__(
             output_dir,
@@ -611,7 +615,9 @@ class RealWAMEnv(BaseRealEnv):
         ):
         robot = WAMInterpolationController(
             shm_manager=shm_manager,
-            rt_topic=self.rt_topic,
+            wam_node_prefix=self.wam_node_prefix,
+            hand_node_prefix=self.hand_node_prefix,
+            rt_control=self.rt_control,
             frequency=frequency,
             max_speed=max_pos_speed,
             joints_init=j_init,

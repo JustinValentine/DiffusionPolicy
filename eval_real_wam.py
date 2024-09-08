@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 Usage:
 (robodiff)$ python eval_real_robot.py -i <ckpt_path> -o <save_dir> --robot_ip <ip_of_ur5>
@@ -32,9 +34,6 @@ import hydra
 import pathlib
 import skvideo.io
 from omegaconf import OmegaConf
-import scipy.spatial.transform as st
-from diffusion_policy.real_world.real_env import RealEnv
-from diffusion_policy.real_world.spacemouse_shared_memory import Spacemouse
 from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.real_world.real_inference_util import (
     get_real_obs_resolution, 
@@ -42,7 +41,6 @@ from diffusion_policy.real_world.real_inference_util import (
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
-from diffusion_policy.common.cv2_util import get_image_transform
 from diffusion_policy.real_world.real_env import RealWAMEnv
 
 
@@ -51,7 +49,6 @@ OmegaConf.register_new_resolver("eval", eval, replace=True)
 @click.command()
 @click.option('--input', '-i', required=True, help='Path to checkpoint')
 @click.option('--output', '-o', required=True, help='Directory to save recording')
-@click.option('--robot_ip', '-ri', required=True, help="UR5's IP address e.g. 192.168.0.204")
 @click.option('--match_dataset', '-m', default=None, help='Dataset used to overlay and adjust initial condition')
 @click.option('--match_episode', '-me', default=None, type=int, help='Match specific episode from the match dataset')
 @click.option('--vis_camera_idx', default=0, type=int, help="Which RealSense camera to visualize.")
@@ -59,11 +56,10 @@ OmegaConf.register_new_resolver("eval", eval, replace=True)
 @click.option('--steps_per_inference', '-si', default=6, type=int, help="Action horizon for inference.")
 @click.option('--max_duration', '-md', default=60, help='Max duration for each epoch in seconds.')
 @click.option('--frequency', '-f', default=10, type=float, help="Control frequency in Hz.")
-@click.option('--command_latency', '-cl', default=0.01, type=float, help="Latency between receiving SapceMouse command to executing on Robot in Sec.")
-def main(input, output, robot_ip, match_dataset, match_episode,
+def main(input, output, match_dataset, match_episode,
     vis_camera_idx, init_joints, 
     steps_per_inference, max_duration,
-    frequency, command_latency):
+    frequency):
     # load match_dataset
     match_camera_idx = 0
     episode_first_frame_map = dict()
@@ -98,7 +94,7 @@ def main(input, output, robot_ip, match_dataset, match_episode,
         if cfg.training.use_ema:
             policy = workspace.ema_model
 
-        device = torch.device('cuda')
+        device = torch.device('cpu')
         policy.eval().to(device)
 
         # set inference params
@@ -140,11 +136,14 @@ def main(input, output, robot_ip, match_dataset, match_episode,
     print("n_obs_steps: ", n_obs_steps)
     print("steps_per_inference:", steps_per_inference)
     print("action_offset:", action_offset)
+    time.sleep(30.0)
 
     with SharedMemoryManager() as shm_manager:
         with RealWAMEnv(
             output_dir=output, 
-            rt_topic="/wam/jnt_pos_cmd",
+            wam_node_prefix="/wam",
+            hand_node_prefix="/bhand",
+            rt_control=True,
             frequency=frequency,
             n_obs_steps=n_obs_steps,
             obs_image_resolution=obs_res,
@@ -152,6 +151,7 @@ def main(input, output, robot_ip, match_dataset, match_episode,
             init_joints=init_joints,
             enable_multi_cam_vis=True,
             record_raw_video=True,
+            max_pos_speed=np.inf,
             # number of threads per camera view for video recording (H.264)
             thread_per_video=3,
             # video recording quality, lower is better (but slower).
@@ -306,7 +306,7 @@ def main(input, output, robot_ip, match_dataset, match_episode,
                         )
                         curr_pos = obs["robot_qpos"][-1]
                         dist = np.linalg.norm((curr_pos - term_pos), axis=-1)
-                        if dist < 0.03:
+                        if dist < 0.1:
                             # in termination area
                             curr_timestamp = obs['timestamp'][-1]
                             if term_area_start_timestamp > curr_timestamp:
