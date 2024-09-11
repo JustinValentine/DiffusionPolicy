@@ -33,7 +33,7 @@ def test_pose_trajectory_interpolator():
         np.zeros((3,6))
     )
     times = interp.times
-    poses = interp.poses
+    poses = interp.values
 
     trimmed_interp = interp.trim(-1,4)
     assert len(trimmed_interp.times) == 5
@@ -86,9 +86,9 @@ def test_add_waypoint():
 
         interp = PoseTrajectoryInterpolator(
             times=waypoint_times, 
-            poses=waypoint_poses)
-        new_interp = interp.add_waypoint(
-            pose=new_pose,
+            values=waypoint_poses)
+        new_interp = interp.schedule_waypoint(
+            value=new_pose,
             time=insert_time,
             max_pos_speed=max_pos_speed,
             max_rot_speed=max_rot_speed,
@@ -111,9 +111,9 @@ def test_drive_to_waypoint():
 
         interp = PoseTrajectoryInterpolator(
             times=waypoint_times, 
-            poses=waypoint_poses)
+            values=waypoint_poses)
         new_interp = interp.drive_to_waypoint(
-            pose=new_pose,
+            value=new_pose,
             time=insert_time,
             curr_time=curr_time,
             max_pos_speed=max_pos_speed,
