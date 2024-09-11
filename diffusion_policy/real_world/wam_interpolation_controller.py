@@ -11,7 +11,7 @@ from rtde_receive import RTDEReceiveInterface
 from diffusion_policy.shared_memory.shared_memory_queue import (
     SharedMemoryQueue, Empty)
 from diffusion_policy.shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
-from diffusion_policy.common.pose_trajectory_interpolator import PoseTrajectoryInterpolator
+from diffusion_policy.common.trajectory_interpolator import PoseTrajectoryInterpolator
 
 class Command(enum.Enum):
     STOP = 0

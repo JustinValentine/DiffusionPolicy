@@ -14,14 +14,18 @@ def main(input):
     replay_buffer = ReplayBuffer.copy_from_path(in_zarr_path)
 
     last_states = []
+    first_states = []
     n_episodes = replay_buffer.n_episodes
     for i in range(n_episodes):
 
         episode = replay_buffer.get_episode(i)
         last_states.append(episode['robot_qpos'][-1])
+        first_states.append(episode['robot_qpos'][0])
 
     last_states = np.array(last_states)
-    print(repr(last_states.mean(axis=0)))
+    first_states = np.array(first_states)
+    print("term state", repr(last_states.mean(axis=0)))
+    print("first state", repr(first_states.mean(axis=0)))
     
 
 if __name__ == '__main__':

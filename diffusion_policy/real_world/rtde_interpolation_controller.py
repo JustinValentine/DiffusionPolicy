@@ -14,8 +14,7 @@ from rtde_receive import RTDEReceiveInterface
 from diffusion_policy.shared_memory.shared_memory_queue import (
     SharedMemoryQueue, Empty)
 from diffusion_policy.shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
-from diffusion_policy.common.pose_trajectory_interpolator import PoseTrajectoryInterpolator
-from diffusion_policy.common.joint_trajectory_interpolator import JointTrajectoryInterpolator
+from diffusion_policy.common.trajectory_interpolator import PoseTrajectoryInterpolator, JointTrajectoryInterpolator
 
 from sensor_msgs.msg import JointState
 from wam_msgs.msg import RTJointPos
@@ -329,7 +328,7 @@ class RTDEInterpolationController(BaseInterpolationController):
             last_waypoint_time = curr_t
             pose_interp = self.interp_cls(
                 times=[curr_t],
-                poses=[curr_pose]
+                values=[curr_pose]
             )
             
             iter_idx = 0
@@ -387,7 +386,7 @@ class RTDEInterpolationController(BaseInterpolationController):
                         curr_time = t_now + dt
                         t_insert = curr_time + duration
                         pose_interp = pose_interp.drive_to_waypoint(
-                            pose=target_pose,
+                            value=target_pose,
                             time=t_insert,
                             curr_time=curr_time,
                             max_pos_speed=self.max_pos_speed,
@@ -404,7 +403,7 @@ class RTDEInterpolationController(BaseInterpolationController):
                         target_time = time.monotonic() - time.time() + target_time
                         curr_time = t_now + dt
                         pose_interp = pose_interp.schedule_waypoint(
-                            pose=target_pose,
+                            value=target_pose,
                             time=target_time,
                             max_pos_speed=self.max_pos_speed,
                             max_rot_speed=self.max_rot_speed,
@@ -449,6 +448,7 @@ class WAMInterpolationController(BaseInterpolationController):
             hand_node_prefix="/bhand",
             rt_control=False,
             frequency=125, 
+            hand_frequency=20,
             max_speed=0.25, # 5% of max speed
             launch_timeout=3,
             joints_init=None,
@@ -477,6 +477,7 @@ class WAMInterpolationController(BaseInterpolationController):
         self.wam_node_prefix = wam_node_prefix
         self.rt_control = rt_control
         self.hand_node_prefix = hand_node_prefix
+        self.hand_frequency = hand_frequency
 
         self.first_joint_state = False
         self.first_hand_state = False
@@ -560,10 +561,13 @@ class WAMInterpolationController(BaseInterpolationController):
 
         self.joint_move = rospy.ServiceProxy(f"{self.wam_node_prefix}/joint_move", JointMove)
 
+        hand_rel_rate = self.frequency // self.hand_frequency 
+
 
         try:
 
             rate = rospy.Rate(self.frequency)
+
             
             # init pose
             if self.joints_init is not None:
@@ -584,10 +588,9 @@ class WAMInterpolationController(BaseInterpolationController):
             last_waypoint_time = curr_t
             pos_interp = self.interp_cls(
                 times=[curr_t],
-                joints=[curr_pos]
+                values=[curr_pos]
             )
 
-            
             iter_idx = 0
             keep_running = True
             while keep_running and not rospy.is_shutdown():
@@ -599,14 +602,15 @@ class WAMInterpolationController(BaseInterpolationController):
                 if self.rt_control:
                     pos_command = pos_interp(t_now)
                     rt_msg = RTJointPos()
-                    rt_msg.rate_limits = np.array([0.1]*7)
+                    rt_msg.rate_limits = np.array([1.0]*7)
                     rt_msg.joints = pos_command[:7]
                     self.rt_pub.publish(rt_msg)
-
-                    rt_hand_msg = BhandTeleop()
-                    rt_hand_msg.spread = pos_command[7]
-                    rt_hand_msg.grasp = pos_command[8]
-                    self.rt_hand_pub.publish(rt_hand_msg)
+                    
+                    if iter_idx % hand_rel_rate == 0:
+                        rt_hand_msg = BhandTeleop()
+                        rt_hand_msg.spread = pos_command[7]
+                        rt_hand_msg.grasp = pos_command[8]
+                        self.rt_hand_pub.publish(rt_hand_msg)
 
                 # update robot state
                 state = dict()
@@ -634,6 +638,7 @@ class WAMInterpolationController(BaseInterpolationController):
                         # stop immediately, ignore later commands
                         break
                     elif cmd == Command.SERVO.value:
+
                         # since curr_pose always lag behind curr_target_pose
                         # if we start the next interpolation with curr_pose
                         # the command robot receive will have discontinouity 
@@ -643,7 +648,7 @@ class WAMInterpolationController(BaseInterpolationController):
                         curr_time = t_now + dt
                         t_insert = curr_time + duration
                         pos_interp = pos_interp.drive_to_waypoint(
-                            joint=target_pos,
+                            value=target_pos,
                             time=t_insert,
                             curr_time=curr_time,
                             max_speed=self.max_speed,

@@ -202,8 +202,6 @@ class BaseRealEnv(ABC):
     def create_robot(
             self,
             shm_manager,
-            max_pos_speed,
-            max_rot_speed,
             tcp_offset,
             j_init,
             max_obs_buffer_size,
@@ -482,9 +480,13 @@ class RealEnv(BaseRealEnv):
             # shared memory
             shm_manager=None
             ):
+
+        self.robot_ip = robot_ip
+        cube_diag = np.linalg.norm([1,1,1])
+        self.max_pos_speed=max_pos_speed*cube_diag
+        self.max_rot_speed=max_rot_speed*cube_diag
         super().__init__(
             output_dir,
-            robot_ip=robot_ip, 
             frequency=frequency,
             n_obs_steps=n_obs_steps,
             obs_image_resolution=obs_image_resolution,
@@ -492,8 +494,6 @@ class RealEnv(BaseRealEnv):
             camera_serial_numbers=camera_serial_numbers,
             obs_key_map=obs_key_map,
             obs_float32=obs_float32,
-            max_pos_speed=max_pos_speed,
-            max_rot_speed=max_rot_speed,
             tcp_offset=tcp_offset,
             init_joints=init_joints,
             video_capture_fps=video_capture_fps,
@@ -511,8 +511,6 @@ class RealEnv(BaseRealEnv):
     def create_robot(
             self,
             shm_manager,
-            max_pos_speed,
-            max_rot_speed,
             tcp_offset,
             j_init,
             max_obs_buffer_size,
@@ -521,12 +519,12 @@ class RealEnv(BaseRealEnv):
         ):
         robot = RTDEInterpolationController(
             shm_manager=shm_manager,
-            robot_ip=kwargs['robot_ip'],
+            robot_ip=self.robot_ip,
             frequency=frequency,
             lookahead_time=0.1,
             gain=300,
-            max_pos_speed=max_pos_speed,
-            max_rot_speed=max_rot_speed,
+            max_pos_speed=self.max_pos_speed,
+            max_rot_speed=self.max_rot_speed,
             launch_timeout=3,
             tcp_offset_pose=[0,0,tcp_offset,0,0,0],
             payload_mass=None,
@@ -573,7 +571,8 @@ class RealWAMEnv(BaseRealEnv):
             enable_multi_cam_vis=True,
             multi_cam_vis_resolution=(1280,720),
             # shared memory
-            shm_manager=None
+            shm_manager=None,
+            **kwargs
             ):
         self.wam_node_prefix = wam_node_prefix
         self.hand_node_prefix = hand_node_prefix
@@ -598,28 +597,27 @@ class RealWAMEnv(BaseRealEnv):
             video_crf=video_crf,
             enable_multi_cam_vis=enable_multi_cam_vis,
             multi_cam_vis_resolution=multi_cam_vis_resolution,
-            shm_manager=shm_manager
+            shm_manager=shm_manager,
+            kwargs=kwargs
         )
-
 
 
     def create_robot(
             self,
             shm_manager,
-            max_pos_speed,
-            max_rot_speed,
-            tcp_offset,
             j_init,
             max_obs_buffer_size,
             frequency=125,
+            **kwargs
         ):
+        max_speed=np.array([1, 1, 1, 1, 1, 1, 1, 2, 2]),
         robot = WAMInterpolationController(
             shm_manager=shm_manager,
             wam_node_prefix=self.wam_node_prefix,
             hand_node_prefix=self.hand_node_prefix,
             rt_control=self.rt_control,
             frequency=frequency,
-            max_speed=max_pos_speed,
+            max_speed=max_speed,
             joints_init=j_init,
             receive_keys=None,
             get_max_k=max_obs_buffer_size

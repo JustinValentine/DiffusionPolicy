@@ -2,6 +2,9 @@ from typing import Union
 import numbers
 import numpy as np
 import scipy.interpolate as si
+from abc import ABC, abstractmethod
+
+class BaseTrajectoryInterpolator(ABC):
 
 
 class JointTrajectoryInterpolator:
@@ -62,8 +65,8 @@ class JointTrajectoryInterpolator:
 
         curr_joint = self(curr_time)
 
-        joint_dist = np.linalg.norm(joint - curr_joint)
-        min_duration = joint_dist / max_speed
+        joint_dist = np.abs(joint - curr_joint)
+        min_duration = (joint_dist / max_speed).min()
         duration = time - curr_time
         duration = max(duration, min_duration)
         assert duration >= 0
@@ -140,8 +143,8 @@ class JointTrajectoryInterpolator:
         # determine speed
         duration = time - end_time
         end_joint = trimmed_interp(end_time)
-        joint_dist = np.linalg.norm(end_joint - joint)
-        min_duration = joint_dist / max_speed
+        joint_dist = np.abs(end_joint - joint)
+        min_duration = (joint_dist / max_speed).min()
         duration = max(duration, min_duration)
         assert duration >= 0
         last_waypoint_time = end_time + duration

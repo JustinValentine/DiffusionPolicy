@@ -42,6 +42,8 @@ from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
 from diffusion_policy.real_world.real_env import RealWAMEnv
+from diffusion_policy.common.trapezoidal_profile import trapezoidal_waypoints
+
 
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
@@ -74,6 +76,9 @@ def main(input, output, match_dataset, match_episode,
                     str(match_video_path), num_frames=1)
                 episode_first_frame_map[episode_idx] = frames[0]
     print(f"Loaded initial frame for {len(episode_first_frame_map)} episodes")
+
+    start_pos = np.array([-3.83049790e-05,  8.52910535e-02, -6.12492730e-02,  2.77529342e+00,
+        3.49494592e-02,  1.31304435e-01,  4.03060575e-02, 0, 0])
     
     # load checkpoint
     ckpt_path = input
@@ -148,6 +153,7 @@ def main(input, output, match_dataset, match_episode,
             n_obs_steps=n_obs_steps,
             obs_image_resolution=obs_res,
             obs_float32=True,
+            max_speed=np.array([1, 1, 1, 1, 1, 1, 1, 2, 2]),
             init_joints=init_joints,
             enable_multi_cam_vis=True,
             record_raw_video=True,
@@ -186,8 +192,20 @@ def main(input, output, match_dataset, match_episode,
                 # ========== policy control loop ==============
                 try:
                     # start episode
+                    # generate trapezodial vel trajectory move to start.
+                    response = input("Press Enter to start the episode.")
+
+                    obs = env.get_obs()
+                    current_pos = np.append(obs['robot_qpos'], [0, 0])
+                    times, points = trapezoidal_waypoints(current_pos, start_pos, 0.5, 0.5)
+                    times = times + obs['timestamp'][-1]
+                    env.exec_actions(
+                        actions=points,
+                        timestamps=times
+                    )
+
                     policy.reset()
-                    start_delay = 1.0
+                    start_delay = 3.0
                     eval_t_start = time.time() + start_delay
                     t_start = time.monotonic() + start_delay
                     env.start_episode(eval_t_start)

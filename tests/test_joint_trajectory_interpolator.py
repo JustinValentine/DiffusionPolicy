@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import numpy as np
-from diffusion_policy.common.joint_trajectory_interpolator import (
+from diffusion_policy.common.trajectory_interpolator import (
     JointTrajectoryInterpolator,
 )
 from numpy.testing import assert_array_equal
@@ -40,7 +40,7 @@ def test_joint_trajectory_interpolator():
     t = np.linspace(-1, 5, 100)
     interp = JointTrajectoryInterpolator([0, 1, 3], np.zeros((3, 6)))
     times = interp.times
-    joints = interp.joints
+    joints = interp.values
     assert (times == [0, 1, 3]).all()
     assert (joints == np.zeros((3, 6))).all()
 
@@ -88,10 +88,10 @@ def test_schedule_waypoint():
                 curr_time = None
 
         interp = JointTrajectoryInterpolator(
-            times=waypoint_times, joints=waypoint_joints
+            times=waypoint_times, values=waypoint_joints
         )
         new_interp = interp.schedule_waypoint(
-            joint=new_joint,
+            value=new_joint,
             time=insert_time,
             max_speed=max_speed,
             curr_time=curr_time,
@@ -112,10 +112,10 @@ def test_drive_to_waypoint():
         new_joint = rng.normal(0, 3, size=6)
 
         interp = JointTrajectoryInterpolator(
-            times=waypoint_times, joints=waypoint_joints
+            times=waypoint_times, values=waypoint_joints
         )
         new_interp = interp.drive_to_waypoint(
-            joint=new_joint,
+            value=new_joint,
             time=insert_time,
             curr_time=curr_time,
             max_speed=max_speed,
