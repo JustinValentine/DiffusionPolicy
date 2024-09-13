@@ -57,7 +57,7 @@ OmegaConf.register_new_resolver("eval", eval, replace=True)
 @click.option('--init_joints', '-j', is_flag=True, default=False, help="Whether to initialize robot joint configuration in the beginning.")
 @click.option('--steps_per_inference', '-si', default=6, type=int, help="Action horizon for inference.")
 @click.option('--max_duration', '-md', default=60, help='Max duration for each epoch in seconds.')
-@click.option('--frequency', '-f', default=10, type=float, help="Control frequency in Hz.")
+@click.option('--frequency', '-f', default=2, type=float, help="Control frequency in Hz.")
 def main(input, output, match_dataset, match_episode,
     vis_camera_idx, init_joints, 
     steps_per_inference, max_duration,
@@ -99,7 +99,7 @@ def main(input, output, match_dataset, match_episode,
         if cfg.training.use_ema:
             policy = workspace.ema_model
 
-        device = torch.device('cpu')
+        device = torch.device('cuda')
         policy.eval().to(device)
 
         # set inference params
@@ -141,7 +141,6 @@ def main(input, output, match_dataset, match_episode,
     print("n_obs_steps: ", n_obs_steps)
     print("steps_per_inference:", steps_per_inference)
     print("action_offset:", action_offset)
-    time.sleep(30.0)
 
     with SharedMemoryManager() as shm_manager:
         with RealWAMEnv(
@@ -153,7 +152,6 @@ def main(input, output, match_dataset, match_episode,
             n_obs_steps=n_obs_steps,
             obs_image_resolution=obs_res,
             obs_float32=True,
-            max_speed=np.array([1, 1, 1, 1, 1, 1, 1, 2, 2]),
             init_joints=init_joints,
             enable_multi_cam_vis=True,
             record_raw_video=True,
@@ -193,11 +191,16 @@ def main(input, output, match_dataset, match_episode,
                 try:
                     # start episode
                     # generate trapezodial vel trajectory move to start.
-                    response = input("Press Enter to start the episode.")
+                    # input("Press Enter to start the episode.")
 
                     obs = env.get_obs()
-                    current_pos = np.append(obs['robot_qpos'], [0, 0])
-                    times, points = trapezoidal_waypoints(current_pos, start_pos, 0.5, 0.5)
+                    current_pos = np.append(obs['robot_qpos'][-1], [0, 0])
+
+                    v_max = np.array([0.5]*9)
+                    a_max = np.array([0.5]*9)
+                    times, points = trapezoidal_waypoints(current_pos, start_pos, v_max, a_max, time_step=dt)
+                    times += 1.0 # start after 1 sec
+                    start_delay = times.max() + 5.0 # wait for the move to finish
                     times = times + obs['timestamp'][-1]
                     env.exec_actions(
                         actions=points,
@@ -205,7 +208,6 @@ def main(input, output, match_dataset, match_episode,
                     )
 
                     policy.reset()
-                    start_delay = 3.0
                     eval_t_start = time.time() + start_delay
                     t_start = time.monotonic() + start_delay
                     env.start_episode(eval_t_start)
@@ -222,8 +224,8 @@ def main(input, output, match_dataset, match_episode,
                         t_cycle_end = t_start + (iter_idx + steps_per_inference) * dt
 
                         # get obs
-                        print('get_obs')
                         obs = env.get_obs()
+                        print(obs)
                         obs_timestamps = obs['timestamp']
                         print(f'Obs latency {time.time() - obs_timestamps[-1]}')
 
@@ -237,6 +239,7 @@ def main(input, output, match_dataset, match_episode,
                             result = policy.predict_action(obs_dict)
                             # this action starts from the first obs step
                             action = result['action'][0].detach().to('cpu').numpy()
+                            print("actionshape", action.shape)
                             print('Inference latency:', time.time() - s)
                         
                         # convert policy action to env actions
@@ -258,6 +261,9 @@ def main(input, output, match_dataset, match_episode,
                         action_exec_latency = 0.01
                         curr_time = time.time()
                         is_new = action_timestamps > (curr_time + action_exec_latency)
+
+                        # TODO: Check modification, hard code all new
+                        is_new = np.ones_like(action_timestamps, dtype=bool)
                         if np.sum(is_new) == 0:
                             # exceeded time budget, still do something
                             this_targets = this_targets[[-1]]

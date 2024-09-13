@@ -457,7 +457,7 @@ class WAMInterpolationController(BaseInterpolationController):
             receive_keys=None,
             get_max_k=128,
             ):
-        assert 0 < max_speed
+        # assert 0 < max_speed
         
         self.max_speed = max_speed
 
@@ -602,15 +602,19 @@ class WAMInterpolationController(BaseInterpolationController):
                 if self.rt_control:
                     pos_command = pos_interp(t_now)
                     rt_msg = RTJointPos()
-                    rt_msg.rate_limits = np.array([1.0]*7)
+                    rt_msg.rate_limits = np.array([0.5]*7)
                     rt_msg.joints = pos_command[:7]
-                    self.rt_pub.publish(rt_msg)
+                    # self.rt_pub.publish(rt_msg)
                     
                     if iter_idx % hand_rel_rate == 0:
                         rt_hand_msg = BhandTeleop()
-                        rt_hand_msg.spread = pos_command[7]
-                        rt_hand_msg.grasp = pos_command[8]
-                        self.rt_hand_pub.publish(rt_hand_msg)
+                        
+                        rt_hand_msg.spread = 0.0
+                        if pos_command[8] > 0:
+                            rt_hand_msg.grasp = min(pos_command[8]*1000, 2.0)
+                        else:
+                            rt_hand_msg.grasp = max(pos_command[8]*1000, -2.0)
+                        # self.rt_hand_pub.publish(rt_hand_msg)
 
                 # update robot state
                 state = dict()
@@ -664,7 +668,7 @@ class WAMInterpolationController(BaseInterpolationController):
                         target_time = time.monotonic() - time.time() + target_time
                         curr_time = t_now + dt
                         pos_interp = pos_interp.schedule_waypoint(
-                            joint=target_pos,
+                            value=target_pos,
                             time=target_time,
                             max_speed=self.max_speed,
                             curr_time=curr_time,

@@ -610,7 +610,7 @@ class RealWAMEnv(BaseRealEnv):
             frequency=125,
             **kwargs
         ):
-        max_speed=np.array([1, 1, 1, 1, 1, 1, 1, 2, 2]),
+        max_speed=np.array([1, 1, 1, 1, 1, 1, 1, np.inf, np.inf]),
         robot = WAMInterpolationController(
             shm_manager=shm_manager,
             wam_node_prefix=self.wam_node_prefix,
