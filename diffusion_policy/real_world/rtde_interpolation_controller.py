@@ -15,6 +15,7 @@ from diffusion_policy.shared_memory.shared_memory_queue import (
     SharedMemoryQueue, Empty)
 from diffusion_policy.shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
 from diffusion_policy.common.trajectory_interpolator import PoseTrajectoryInterpolator, JointTrajectoryInterpolator
+from diffusion_policy.common.pid_controller import PIDController
 
 from sensor_msgs.msg import JointState
 from wam_msgs.msg import RTJointPos
@@ -457,6 +458,7 @@ class WAMInterpolationController(BaseInterpolationController):
             receive_keys=None,
             get_max_k=128,
             ):
+        # TODO: fix max speed assertion
         # assert 0 < max_speed
         
         self.max_speed = max_speed
@@ -478,6 +480,13 @@ class WAMInterpolationController(BaseInterpolationController):
         self.rt_control = rt_control
         self.hand_node_prefix = hand_node_prefix
         self.hand_frequency = hand_frequency
+        kp = np.array([1, 1])
+        self.hand_pid_controller = PIDController(
+            kp=kp,
+            ki=0.1*kp,
+            kd=0.01*kp,
+            max_velocity=np.array([3.0, 3.0]),
+        )
 
         self.first_joint_state = False
         self.first_hand_state = False
@@ -607,13 +616,15 @@ class WAMInterpolationController(BaseInterpolationController):
                     # self.rt_pub.publish(rt_msg)
                     
                     if iter_idx % hand_rel_rate == 0:
+                        vel = self.hand_pid_controller.compute_velocity(
+                            self.data['hand_position'][[0, 3]],
+                            pos_command[7:],
+                            1/self.hand_frequency
+                        )
                         rt_hand_msg = BhandTeleop()
                         
-                        rt_hand_msg.spread = 0.0
-                        if pos_command[8] > 0:
-                            rt_hand_msg.grasp = min(pos_command[8]*1000, 2.0)
-                        else:
-                            rt_hand_msg.grasp = max(pos_command[8]*1000, -2.0)
+                        rt_hand_msg.spread = vel[0]
+                        rt_hand_msg.grasp = vel[1]
                         # self.rt_hand_pub.publish(rt_hand_msg)
 
                 # update robot state
