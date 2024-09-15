@@ -448,7 +448,7 @@ class WAMInterpolationController(BaseInterpolationController):
             wam_node_prefix="/wam_master_master/follower",
             hand_node_prefix="/bhand",
             rt_control=False,
-            frequency=125, 
+            frequency=250, 
             hand_frequency=20,
             max_speed=0.25, # 5% of max speed
             launch_timeout=3,
@@ -480,12 +480,12 @@ class WAMInterpolationController(BaseInterpolationController):
         self.rt_control = rt_control
         self.hand_node_prefix = hand_node_prefix
         self.hand_frequency = hand_frequency
-        kp = np.array([1, 1])
+        kp = np.array([5, 5])
         self.hand_pid_controller = PIDController(
             kp=kp,
             ki=0.1*kp,
             kd=0.01*kp,
-            max_velocity=np.array([3.0, 3.0]),
+            max_velocity=np.array([2.0, 2.0]),
         )
 
         self.first_joint_state = False
@@ -591,7 +591,9 @@ class WAMInterpolationController(BaseInterpolationController):
             # main loop
             dt = 1. / self.frequency
             curr_pos = self.data['position']
-            curr_pos = np.append(curr_pos, [0, 0])
+            hand_pos = self.data['hand_position'][[0, 3]]
+
+            curr_pos = np.append(curr_pos, hand_pos)
             # use monotonic time to make sure the control loop never go backward
             curr_t = time.monotonic()
             last_waypoint_time = curr_t
@@ -611,9 +613,11 @@ class WAMInterpolationController(BaseInterpolationController):
                 if self.rt_control:
                     pos_command = pos_interp(t_now)
                     rt_msg = RTJointPos()
-                    rt_msg.rate_limits = np.array([0.5]*7)
+                    rt_msg.rate_limits = np.array([1.0]*7)
                     rt_msg.joints = pos_command[:7]
-                    # self.rt_pub.publish(rt_msg)
+                    # TODO: remove when puck 1 returned
+                    rt_msg.joints[6] = 0.0
+                    self.rt_pub.publish(rt_msg)
                     
                     if iter_idx % hand_rel_rate == 0:
                         vel = self.hand_pid_controller.compute_velocity(
@@ -622,10 +626,9 @@ class WAMInterpolationController(BaseInterpolationController):
                             1/self.hand_frequency
                         )
                         rt_hand_msg = BhandTeleop()
-                        
-                        rt_hand_msg.spread = vel[0]
-                        rt_hand_msg.grasp = vel[1]
-                        # self.rt_hand_pub.publish(rt_hand_msg)
+                        rt_hand_msg.spread = vel[1]
+                        rt_hand_msg.grasp = vel[0]
+                        self.rt_hand_pub.publish(rt_hand_msg)
 
                 # update robot state
                 state = dict()

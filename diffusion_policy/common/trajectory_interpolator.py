@@ -291,7 +291,7 @@ class JointTrajectoryInterpolator(BaseTrajectoryInterpolator):
     def schedule_waypoint(
         self, value, time, max_speed=np.inf, curr_time=None, last_waypoint_time=None
     ) -> "JointTrajectoryInterpolator":
-        assert max_speed > 0
+        # assert max_speed > 0
         if last_waypoint_time is not None:
             assert curr_time is not None
 

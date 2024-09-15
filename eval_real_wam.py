@@ -55,7 +55,7 @@ OmegaConf.register_new_resolver("eval", eval, replace=True)
 @click.option('--match_episode', '-me', default=None, type=int, help='Match specific episode from the match dataset')
 @click.option('--vis_camera_idx', default=0, type=int, help="Which RealSense camera to visualize.")
 @click.option('--init_joints', '-j', is_flag=True, default=False, help="Whether to initialize robot joint configuration in the beginning.")
-@click.option('--steps_per_inference', '-si', default=6, type=int, help="Action horizon for inference.")
+@click.option('--steps_per_inference', '-si', default=10, type=int, help="Action horizon for inference.")
 @click.option('--max_duration', '-md', default=60, help='Max duration for each epoch in seconds.')
 @click.option('--frequency', '-f', default=2, type=float, help="Control frequency in Hz.")
 def main(input, output, match_dataset, match_episode,
@@ -78,7 +78,7 @@ def main(input, output, match_dataset, match_episode,
     print(f"Loaded initial frame for {len(episode_first_frame_map)} episodes")
 
     start_pos = np.array([-3.83049790e-05,  8.52910535e-02, -6.12492730e-02,  2.77529342e+00,
-        3.49494592e-02,  1.31304435e-01,  4.03060575e-02, 0, 0])
+        3.49494592e-02,  1.31304435e-01,  4.03060575e-02, 0, 0.1388055944366558])
     
     # load checkpoint
     ckpt_path = input
@@ -194,7 +194,9 @@ def main(input, output, match_dataset, match_episode,
                     # input("Press Enter to start the episode.")
 
                     obs = env.get_obs()
-                    current_pos = np.append(obs['robot_qpos'][-1], [0, 0])
+                    obs_hand = obs['hand_qpos'][-1, [0, 3]]
+                    print("obs_hand", obs['hand_qpos'][-1])
+                    current_pos = np.append(obs['robot_qpos'][-1], obs_hand)
 
                     v_max = np.array([0.5]*9)
                     a_max = np.array([0.5]*9)
@@ -225,7 +227,6 @@ def main(input, output, match_dataset, match_episode,
 
                         # get obs
                         obs = env.get_obs()
-                        print(obs)
                         obs_timestamps = obs['timestamp']
                         print(f'Obs latency {time.time() - obs_timestamps[-1]}')
 
@@ -258,7 +259,7 @@ def main(input, output, match_dataset, match_episode,
                         # the same step actions are always the target for
                         action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset
                             ) * dt + obs_timestamps[-1]
-                        action_exec_latency = 0.01
+                        action_exec_latency = 0.005
                         curr_time = time.time()
                         is_new = action_timestamps > (curr_time + action_exec_latency)
 
@@ -330,14 +331,14 @@ def main(input, output, match_dataset, match_episode,
                         )
                         curr_pos = obs["robot_qpos"][-1]
                         dist = np.linalg.norm((curr_pos - term_pos), axis=-1)
-                        if dist < 0.1:
+                        if dist < 0.5:
                             # in termination area
                             curr_timestamp = obs['timestamp'][-1]
                             if term_area_start_timestamp > curr_timestamp:
                                 term_area_start_timestamp = curr_timestamp
                             else:
                                 term_area_time = curr_timestamp - term_area_start_timestamp
-                                if term_area_time > 0.5:
+                                if term_area_time > 0.3:
                                     terminate = True
                                     print('Terminated by the policy!')
                         else:

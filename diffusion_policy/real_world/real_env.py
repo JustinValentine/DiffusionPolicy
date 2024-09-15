@@ -607,10 +607,10 @@ class RealWAMEnv(BaseRealEnv):
             shm_manager,
             j_init,
             max_obs_buffer_size,
-            frequency=125,
+            frequency=500,
             **kwargs
         ):
-        max_speed=np.array([1, 1, 1, 1, 1, 1, 1, np.inf, np.inf]),
+        max_speed=np.array([0.5]*9),
         robot = WAMInterpolationController(
             shm_manager=shm_manager,
             wam_node_prefix=self.wam_node_prefix,
