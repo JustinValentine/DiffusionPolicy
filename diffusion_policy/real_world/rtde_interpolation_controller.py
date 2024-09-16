@@ -3,6 +3,8 @@ import rospy
 from re import S
 import time
 import enum
+import socket
+import struct
 from abc import ABC, abstractmethod
 import multiprocessing as mp
 from multiprocessing.managers import SharedMemoryManager
@@ -448,7 +450,7 @@ class WAMInterpolationController(BaseInterpolationController):
             wam_node_prefix="/wam_master_master/follower",
             hand_node_prefix="/bhand",
             rt_control=False,
-            frequency=250, 
+            frequency=125, 
             hand_frequency=20,
             max_speed=0.25, # 5% of max speed
             launch_timeout=3,
@@ -573,6 +575,14 @@ class WAMInterpolationController(BaseInterpolationController):
         hand_rel_rate = self.frequency // self.hand_frequency 
 
 
+        udp_ip = "192.168.1.10"
+        udp_port = "5553"
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setblocking(False)
+
+
+
         try:
 
             rate = rospy.Rate(self.frequency)
@@ -612,13 +622,11 @@ class WAMInterpolationController(BaseInterpolationController):
 
                 if self.rt_control:
                     pos_command = pos_interp(t_now)
-                    rt_msg = RTJointPos()
-                    rt_msg.rate_limits = np.array([1.0]*7)
-                    rt_msg.joints = pos_command[:7]
                     # TODO: remove when puck 1 returned
-                    rt_msg.joints[6] = 0.0
-                    self.rt_pub.publish(rt_msg)
-                    
+                    pos_command[0] = 0.0
+                    message = struct.pack('7f', *pos_command[:7])
+                    sock.sendto(message, (udp_ip, int(udp_port)))
+
                     if iter_idx % hand_rel_rate == 0:
                         vel = self.hand_pid_controller.compute_velocity(
                             self.data['hand_position'][[0, 3]],
@@ -629,6 +637,7 @@ class WAMInterpolationController(BaseInterpolationController):
                         rt_hand_msg.spread = vel[1]
                         rt_hand_msg.grasp = vel[0]
                         self.rt_hand_pub.publish(rt_hand_msg)
+
 
                 # update robot state
                 state = dict()
@@ -706,5 +715,6 @@ class WAMInterpolationController(BaseInterpolationController):
         finally:
             # manditory cleanup
             # decelerate
+            sock.close()
             self.ready_event.set()
 

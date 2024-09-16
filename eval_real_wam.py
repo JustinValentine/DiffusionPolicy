@@ -55,9 +55,9 @@ OmegaConf.register_new_resolver("eval", eval, replace=True)
 @click.option('--match_episode', '-me', default=None, type=int, help='Match specific episode from the match dataset')
 @click.option('--vis_camera_idx', default=0, type=int, help="Which RealSense camera to visualize.")
 @click.option('--init_joints', '-j', is_flag=True, default=False, help="Whether to initialize robot joint configuration in the beginning.")
-@click.option('--steps_per_inference', '-si', default=10, type=int, help="Action horizon for inference.")
+@click.option('--steps_per_inference', '-si', default=8, type=int, help="Action horizon for inference.")
 @click.option('--max_duration', '-md', default=60, help='Max duration for each epoch in seconds.')
-@click.option('--frequency', '-f', default=2, type=float, help="Control frequency in Hz.")
+@click.option('--frequency', '-f', default=5, type=float, help="Control frequency in Hz.")
 def main(input, output, match_dataset, match_episode,
     vis_camera_idx, init_joints, 
     steps_per_inference, max_duration,
@@ -255,11 +255,16 @@ def main(input, output, match_dataset, match_episode,
                         else:
                             this_targets = action
 
+                        start = n_obs_steps - 1
+                        end = start + steps_per_inference
+
+                        this_targets = this_targets[start:end]
+
                         # deal with timing
                         # the same step actions are always the target for
-                        action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset
+                        action_timestamps = (np.arange(len(this_targets), dtype=np.float64) + 1 + action_offset
                             ) * dt + obs_timestamps[-1]
-                        action_exec_latency = 0.005
+                        action_exec_latency = 0.01
                         curr_time = time.time()
                         is_new = action_timestamps > (curr_time + action_exec_latency)
 

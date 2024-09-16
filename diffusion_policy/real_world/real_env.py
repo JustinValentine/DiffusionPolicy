@@ -607,7 +607,7 @@ class RealWAMEnv(BaseRealEnv):
             shm_manager,
             j_init,
             max_obs_buffer_size,
-            frequency=500,
+            frequency=125,
             **kwargs
         ):
         max_speed=np.array([0.5]*9),
@@ -616,7 +616,7 @@ class RealWAMEnv(BaseRealEnv):
             wam_node_prefix=self.wam_node_prefix,
             hand_node_prefix=self.hand_node_prefix,
             rt_control=self.rt_control,
-            frequency=frequency,
+            frequency=500,
             max_speed=max_speed,
             joints_init=j_init,
             receive_keys=None,
