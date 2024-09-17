@@ -147,10 +147,12 @@ def main(input, output, match_dataset, match_episode,
             output_dir=output, 
             wam_node_prefix="/wam",
             hand_node_prefix="/bhand",
+            robot_ip="192.168.1.10",
             rt_control=True,
             frequency=frequency,
             n_obs_steps=n_obs_steps,
             obs_image_resolution=obs_res,
+            max_obs_buffer_size=530,
             obs_float32=True,
             init_joints=init_joints,
             enable_multi_cam_vis=True,
@@ -240,7 +242,6 @@ def main(input, output, match_dataset, match_episode,
                             result = policy.predict_action(obs_dict)
                             # this action starts from the first obs step
                             action = result['action'][0].detach().to('cpu').numpy()
-                            print("actionshape", action.shape)
                             print('Inference latency:', time.time() - s)
                         
                         # convert policy action to env actions

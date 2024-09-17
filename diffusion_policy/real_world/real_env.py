@@ -333,30 +333,23 @@ class BaseRealEnv(ABC):
         elif not isinstance(stages, np.ndarray):
             stages = np.array(stages, dtype=np.int64)
 
-        # convert action to pose
-        receive_time = time.time()
-        is_new = timestamps > receive_time
-        new_actions = actions[is_new]
-        new_timestamps = timestamps[is_new]
-        new_stages = stages[is_new]
-
         # schedule waypoints
-        for i in range(len(new_actions)):
+        for i in range(len(actions)):
             self.robot.schedule_waypoint(
-                target=new_actions[i],
-                target_time=new_timestamps[i]
+                target=actions[i],
+                target_time=timestamps[i]
             )
         
         # record actions
         if self.action_accumulator is not None:
             self.action_accumulator.put(
-                new_actions,
-                new_timestamps
+                actions,
+                timestamps
             )
         if self.stage_accumulator is not None:
             self.stage_accumulator.put(
-                new_stages,
-                new_timestamps
+                stages,
+                timestamps
             )
     
     def get_robot_state(self):
@@ -545,6 +538,7 @@ class RealWAMEnv(BaseRealEnv):
             output_dir,
             wam_node_prefix="/wam_master_master/follower",
             hand_node_prefix="/bhand",
+            robot_ip="192.168.1.10",
             rt_control=False,
             # env params
             frequency=10,
@@ -576,6 +570,7 @@ class RealWAMEnv(BaseRealEnv):
             ):
         self.wam_node_prefix = wam_node_prefix
         self.hand_node_prefix = hand_node_prefix
+        self.robot_ip = robot_ip
         self.rt_control = rt_control
         self.action_keys = ['position', 'hand_vel_cmd']
         super().__init__(
@@ -613,6 +608,7 @@ class RealWAMEnv(BaseRealEnv):
         max_speed=np.array([0.5]*9),
         robot = WAMInterpolationController(
             shm_manager=shm_manager,
+            robot_ip=self.robot_ip,
             wam_node_prefix=self.wam_node_prefix,
             hand_node_prefix=self.hand_node_prefix,
             rt_control=self.rt_control,
