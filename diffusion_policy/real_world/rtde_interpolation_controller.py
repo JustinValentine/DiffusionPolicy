@@ -514,7 +514,6 @@ class WAMInterpolationController(BaseInterpolationController):
                         self.data['velocity'] = np.array(velocities)
                         self.data['effort'] = np.array(efforts)
                         self.first_joint_state = True
-                    print(f"Received positions: {positions} from {addr}")
 
                 except BlockingIOError:
                     pass  # No data availableVkk
@@ -589,20 +588,20 @@ class WAMInterpolationController(BaseInterpolationController):
     # ========= main loop in process ============
     def run(self):
         rospy.init_node('wam_controller')
-        self.rt_pub = rospy.Publisher(f"{self.wam_node_prefix}/jnt_pos_cmd", RTJointPos, queue_size=10)
+        # self.rt_pub = rospy.Publisher(f"{self.wam_node_prefix}/jnt_pos_cmd", RTJointPos, queue_size=10)
         self.rt_hand_pub = rospy.Publisher("/bhand_mux/bhand_vel", BhandTeleop, queue_size=10)
 
         # self.joint_state_sub = rospy.Subscriber(f"{self.wam_node_prefix}/joint_states", JointState, self.joint_state_callback)
         self.hand_state_sub = rospy.Subscriber(f"{self.hand_node_prefix}/joint_states", JointState, self.hand_state_callback)
         self.hand_vel_cmd_sub = rospy.Subscriber(f"{self.hand_node_prefix}/vel_cmd", BhandTeleop, self.hand_vel_cmd_callback)
 
-        self.joint_move = rospy.ServiceProxy(f"{self.wam_node_prefix}/joint_move", JointMove)
+        # self.joint_move = rospy.ServiceProxy(f"{self.wam_node_prefix}/joint_move", JointMove)
 
         hand_rel_rate = self.frequency // self.hand_frequency 
 
         self.udp_port = 5553
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(("127.0.0.1", self.udp_port))
+        self.sock.bind(("0.0.0.0", self.udp_port))
         self.sock.setblocking(False)
 
         self.recv_thread = threading.Thread(target=self.receive_joint_state, daemon=True)
@@ -642,29 +641,10 @@ class WAMInterpolationController(BaseInterpolationController):
 
             iter_idx = 0
             keep_running = True
+            cmd_send = []
+            time_sent = []
             while keep_running and not rospy.is_shutdown():
                 # start control iteration
-
-                # send command to robot
-                t_now = time.monotonic()
-
-                if self.rt_control:
-                    pos_command = pos_interp(t_now)
-                    # TODO: remove when puck 1 returned
-                    pos_command[0] = 0.0
-                    self.send_joint_positions(pos_command[:7])
-
-                    if iter_idx % hand_rel_rate == 0:
-                        vel = self.hand_pid_controller.compute_velocity(
-                            self.data['hand_position'][[0, 3]],
-                            pos_command[7:],
-                            1/self.hand_frequency
-                        )
-                        rt_hand_msg = BhandTeleop()
-                        rt_hand_msg.spread = vel[1]
-                        rt_hand_msg.grasp = vel[0]
-                        self.rt_hand_pub.publish(rt_hand_msg)
-
 
                 # update robot state
                 state = dict()
@@ -678,6 +658,34 @@ class WAMInterpolationController(BaseInterpolationController):
 
                 state['robot_receive_timestamp'] = time.time()
                 self.ring_buffer.put(state)
+
+                # send command to robot
+                t_now = time.monotonic()
+
+                if self.rt_control:
+                    pos_command = pos_interp(t_now)
+                    # TODO: remove when puck 1 returned
+                    pos_command[0] = 0.0
+
+                    max_diff = self.max_speed[:7] * dt
+                    pos_command[:7] = np.clip(pos_command[:7], state['position'][:7] - max_diff, state['position'][:7] + max_diff)
+                    cmd_send.append(pos_command)
+                    time_sent.append(time.time())
+
+                    # self.send_joint_positions(pos_command[:7])
+
+                    if iter_idx % hand_rel_rate == 0:
+                        vel = self.hand_pid_controller.compute_velocity(
+                            self.data['hand_position'][[0, 3]],
+                            pos_command[7:],
+                            1/self.hand_frequency
+                        )
+                        rt_hand_msg = BhandTeleop()
+                        rt_hand_msg.spread = vel[1]
+                        rt_hand_msg.grasp = vel[0]
+                        # self.rt_hand_pub.publish(rt_hand_msg)
+
+
 
                 # fetch command from queue
                 try:
@@ -740,8 +748,9 @@ class WAMInterpolationController(BaseInterpolationController):
                 actual_rate = 1.0 / elapsed_time
                 prev_time = current_time
                 
-                if actual_rate > self.frequency:
-                    print(f"Actual rate ({actual_rate}) greater than desired rate ({self.frequency})")
+                tolerance = 0.9
+                if (actual_rate / self.frequency) < tolerance:
+                    print(f"Actual rate ({actual_rate}) less than desired rate ({self.frequency})")
                 # regulate frequency
                 rate.sleep()
                 # first loop successful, ready to receive command
@@ -757,4 +766,6 @@ class WAMInterpolationController(BaseInterpolationController):
             # decelerate
             self.sock.close()
             self.ready_event.set()
+            np.array(cmd_send).dump('cmd_send.npy')
+            np.array(time_sent).dump('time_send.npy')
 

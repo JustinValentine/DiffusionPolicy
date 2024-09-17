@@ -418,6 +418,7 @@ class BaseRealEnv(ABC):
             if n_steps > 0:
                 episode = dict()
                 episode['timestamp'] = obs_timestamps[:n_steps]
+                episode['action_timestamp'] = action_timestamps[:n_steps]
                 episode['action'] = actions[:n_steps]
                 episode['stage'] = stages[:n_steps]
                 for key, value in obs_data.items():
@@ -605,7 +606,7 @@ class RealWAMEnv(BaseRealEnv):
             frequency=125,
             **kwargs
         ):
-        max_speed=np.array([0.5]*9),
+        max_speed = np.array([0.5]*9)
         robot = WAMInterpolationController(
             shm_manager=shm_manager,
             robot_ip=self.robot_ip,

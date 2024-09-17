@@ -351,7 +351,7 @@ class JointTrajectoryInterpolator(BaseTrajectoryInterpolator):
         duration = time - end_time
         end_joint = trimmed_interp(end_time)
         joint_dist = np.abs(end_joint - value)
-        min_duration = (joint_dist / max_speed).min()
+        min_duration = (joint_dist / max_speed).max()
         duration = max(duration, min_duration)
         assert duration >= 0
         last_waypoint_time = end_time + duration
