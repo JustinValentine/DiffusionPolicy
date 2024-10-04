@@ -11,6 +11,7 @@ import time
 import sys
 from enum import Enum
 from copy import deepcopy
+import traceback
 
 from gym import logger
 from gym.vector.vector_env import VectorEnv
@@ -605,8 +606,8 @@ def _worker(index, env_fn, pipe, parent_pipe, shared_memory, error_queue):
                     "be one of {`reset`, `step`, `seed`, `close`, "
                     "`_check_observation_space`}.".format(command)
                 )
-    except (KeyboardInterrupt, Exception):
-        error_queue.put((index,) + sys.exc_info()[:2])
+    except (KeyboardInterrupt, Exception) as e:
+        error_queue.put((index, type(e), traceback.format_exc()))
         pipe.send((None, False))
     finally:
         env.close()
@@ -664,8 +665,10 @@ def _worker_shared_memory(index, env_fn, pipe, parent_pipe, shared_memory, error
                     "be one of {`reset`, `step`, `seed`, `close`, "
                     "`_check_observation_space`}.".format(command)
                 )
-    except (KeyboardInterrupt, Exception):
-        error_queue.put((index,) + sys.exc_info()[:2])
+    except (KeyboardInterrupt, Exception) as e:
+        # error_queue.put((index,) + sys.exc_info()[:2])
+        # error_queue.put((index, type(e), e))
+        error_queue.put((index, type(e), traceback.format_exc()))
         pipe.send((None, False))
     finally:
         env.close()
