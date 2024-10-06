@@ -12,7 +12,7 @@ import json
 import hashlib
 import copy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.dataset.base_dataset import BaseImageDataset
+from diffusion_policy.dataset.base_dataset import BaseDataset
 from diffusion_policy.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 from diffusion_policy.common.replay_buffer import ReplayBuffer
 from diffusion_policy.common.sampler import (
@@ -25,7 +25,7 @@ from diffusion_policy.common.normalize_util import (
     array_to_stats
 )
 
-class RealPushTImageDataset(BaseImageDataset):
+class RealPushTImageDataset(BaseDataset):
     def __init__(self,
             shape_meta: dict,
             dataset_path: str,

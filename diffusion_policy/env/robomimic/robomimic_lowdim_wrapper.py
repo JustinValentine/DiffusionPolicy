@@ -94,6 +94,9 @@ class RobomimicLowdimWrapper(gym.Env):
             height=h, width=w, 
             camera_name=self.render_camera_name)
 
+    def close(self):
+        self.env.env.close()
+
 
 def test():
     import robomimic.utils.file_utils as FileUtils

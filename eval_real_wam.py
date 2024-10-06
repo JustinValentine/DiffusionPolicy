@@ -40,7 +40,7 @@ from diffusion_policy.real_world.real_inference_util import (
     get_real_obs_dict)
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
-from diffusion_policy.policy.base_image_policy import BaseImagePolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.real_world.real_env import RealWAMEnv
 from diffusion_policy.common.trapezoidal_profile import trapezoidal_waypoints
 
@@ -94,7 +94,7 @@ def main(input, output, match_dataset, match_episode,
     delta_action = False
     if 'diffusion' in cfg.name:
         # diffusion model
-        policy: BaseImagePolicy
+        policy: BasePolicy
         policy = workspace.model
         if cfg.training.use_ema:
             policy = workspace.ema_model
@@ -108,7 +108,7 @@ def main(input, output, match_dataset, match_episode,
 
     elif 'robomimic' in cfg.name:
         # BCRNN model
-        policy: BaseImagePolicy
+        policy: BasePolicy
         policy = workspace.model
 
         device = torch.device('cuda')
@@ -120,7 +120,7 @@ def main(input, output, match_dataset, match_episode,
         delta_action = cfg.task.dataset.get('delta_action', False)
 
     elif 'ibc' in cfg.name:
-        policy: BaseImagePolicy
+        policy: BasePolicy
         policy = workspace.model
         policy.pred_n_iter = 5
         policy.pred_n_samples = 4096

@@ -1,7 +1,7 @@
 from typing import Dict
 import torch
 from diffusion_policy.model.common.normalizer import LinearNormalizer
-from diffusion_policy.policy.base_image_policy import BaseImagePolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
 
 from robomimic.algo import algo_factory
@@ -9,7 +9,7 @@ from robomimic.algo.algo import PolicyAlgo
 import robomimic.utils.obs_utils as ObsUtils
 from diffusion_policy.common.robomimic_config_util import get_robomimic_config
 
-class RobomimicImagePolicy(BaseImagePolicy):
+class RobomimicImagePolicy(BasePolicy):
     def __init__(self, 
             shape_meta: dict,
             algo_name='bc_rnn',

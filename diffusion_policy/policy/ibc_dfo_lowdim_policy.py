@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from diffusion_policy.model.common.normalizer import LinearNormalizer
-from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 
-class IbcDfoLowdimPolicy(BaseLowdimPolicy):
+class IbcDfoLowdimPolicy(BasePolicy):
     def __init__(self,
             horizon, 
             obs_dim, 

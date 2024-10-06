@@ -15,7 +15,7 @@ import concurrent.futures
 import multiprocessing
 from omegaconf import OmegaConf
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.dataset.base_dataset import BaseImageDataset, LinearNormalizer
+from diffusion_policy.dataset.base_dataset import BaseDataset, LinearNormalizer
 from diffusion_policy.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 from diffusion_policy.codecs.imagecodecs_numcodecs import register_codecs, Jpeg2k
@@ -31,7 +31,7 @@ from diffusion_policy.common.normalize_util import (
 )
 register_codecs()
 
-class RobomimicReplayImageDataset(BaseImageDataset):
+class RobomimicReplayImageDataset(BaseDataset):
     def __init__(self,
             shape_meta: dict,
             dataset_path: str,
@@ -165,6 +165,7 @@ class RobomimicReplayImageDataset(BaseImageDataset):
         normalizer['action'] = this_normalizer
 
         # obs
+        normalizer_obs = LinearNormalizer()
         for key in self.lowdim_keys:
             stat = array_to_stats(self.replay_buffer[key])
 
@@ -177,11 +178,12 @@ class RobomimicReplayImageDataset(BaseImageDataset):
                 this_normalizer = get_range_normalizer_from_stat(stat)
             else:
                 raise RuntimeError('unsupported')
-            normalizer[key] = this_normalizer
+            normalizer_obs[key] = this_normalizer
 
         # image
         for key in self.rgb_keys:
-            normalizer[key] = get_image_range_normalizer()
+            normalizer_obs[key] = get_image_range_normalizer()
+        normalizer['obs'] = normalizer_obs
         return normalizer
 
     def get_all_actions(self) -> torch.Tensor:

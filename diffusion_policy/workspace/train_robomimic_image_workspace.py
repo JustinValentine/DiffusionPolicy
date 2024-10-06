@@ -21,8 +21,8 @@ import numpy as np
 import shutil
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.robomimic_image_policy import RobomimicImagePolicy
-from diffusion_policy.dataset.base_dataset import BaseImageDataset
-from diffusion_policy.env_runner.base_image_runner import BaseImageRunner
+from diffusion_policy.dataset.base_dataset import BaseDataset
+from diffusion_policy.env_runner.base_runner import BaseRunner
 from diffusion_policy.common.checkpoint_util import TopKCheckpointManager
 from diffusion_policy.common.json_logger import JsonLogger
 from diffusion_policy.common.pytorch_util import dict_apply, optimizer_to
@@ -60,9 +60,9 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                 self.load_checkpoint(path=lastest_ckpt_path)
 
         # configure dataset
-        dataset: BaseImageDataset
+        dataset: BaseDataset
         dataset = hydra.utils.instantiate(cfg.task.dataset)
-        assert isinstance(dataset, BaseImageDataset)
+        assert isinstance(dataset, BaseDataset)
         train_dataloader = DataLoader(dataset, **cfg.dataloader)
         normalizer = dataset.get_normalizer()
 
@@ -73,11 +73,11 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
         self.model.set_normalizer(normalizer)
 
         # configure env
-        env_runner: BaseImageRunner
+        env_runner: BaseRunner
         env_runner = hydra.utils.instantiate(
             cfg.task.env_runner,
             output_dir=self.output_dir)
-        assert isinstance(env_runner, BaseImageRunner)
+        assert isinstance(env_runner, BaseRunner)
 
         # configure logging
         wandb_run = wandb.init(

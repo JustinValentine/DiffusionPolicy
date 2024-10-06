@@ -14,9 +14,9 @@ from diffusion_policy.gym_util.sync_vector_env import SyncVectorEnv
 from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
 
-from diffusion_policy.policy.base_image_policy import BaseImagePolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.env_runner.base_image_runner import BaseImageRunner
+from diffusion_policy.env_runner.base_runner import BaseRunner
 from diffusion_policy.env.robomimic.robomimic_kp_wrapper import RobomimicKPWrapper
 from diffusion_policy.env.robomimic.robosuite_kp_wrapper import RobosuiteKpWrapper
 import robomimic.utils.file_utils as FileUtils
@@ -70,7 +70,7 @@ def create_env(env_meta, shape_meta, enable_render=True):
     return env
 
 
-class RobomimicKeypointsRunner(BaseImageRunner):
+class RobomimicKeypointsRunner(BaseRunner):
     """
     Robomimic envs already enforces number of steps.
     """
@@ -271,7 +271,7 @@ class RobomimicKeypointsRunner(BaseImageRunner):
         self.max_steps = max_steps
         self.tqdm_interval_sec = tqdm_interval_sec
 
-    def run(self, policy: BaseImagePolicy):
+    def run(self, policy: BasePolicy):
         device = policy.device
         dtype = policy.dtype
         env = self.env
@@ -386,4 +386,7 @@ class RobomimicKeypointsRunner(BaseImageRunner):
             log_data[name] = value
 
         return log_data
+    
+    def close(self):
+        self.env.close(timeout=5)
 

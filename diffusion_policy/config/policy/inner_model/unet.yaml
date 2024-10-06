@@ -1,0 +1,9 @@
+_target_: diffusion_policy.model.diffusion.conditional_unet1d.ConditionalUnet1D
+input_dim: null # determined from obs_encoder in python
+local_cond_dim: null # determined from obs_encoder in python
+global_cond_dim: null # determined from obs_encoder in python
+diffusion_step_embed_dim: 128
+down_dims: [512, 1024, 2048]
+kernel_size: 5
+n_groups: 8
+cond_predict_scale: True

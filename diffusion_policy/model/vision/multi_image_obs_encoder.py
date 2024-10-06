@@ -7,7 +7,6 @@ from diffusion_policy.model.vision.crop_randomizer import CropRandomizer
 from diffusion_policy.model.common.module_attr_mixin import ModuleAttrMixin
 from diffusion_policy.common.pytorch_util import dict_apply, replace_submodules
 
-
 class MultiImageObsEncoder(ModuleAttrMixin):
     def __init__(self,
             shape_meta: dict,
@@ -24,8 +23,8 @@ class MultiImageObsEncoder(ModuleAttrMixin):
             imagenet_norm: bool=False
         ):
         """
-        Assumes rgb input: B,C,H,W
-        Assumes low_dim input: B,D
+        Assumes rgb input: B,T,C,H,W
+        Assumes low_dim input: B,T,D
         """
         super().__init__()
 
@@ -70,6 +69,7 @@ class MultiImageObsEncoder(ModuleAttrMixin):
                     key_model_map[key] = this_model
                 
                 # configure resize
+                # TODO: crop and resize should not be part of model. Should move to dataloader
                 input_shape = shape
                 this_resizer = nn.Identity()
                 if resize_shape is not None:
@@ -127,6 +127,10 @@ class MultiImageObsEncoder(ModuleAttrMixin):
     def forward(self, obs_dict):
         batch_size = None
         features = list()
+        B, _, _ = obs_dict[self.low_dim_keys[0]].shape
+        obs_dict = dict_apply(
+            obs_dict, lambda x: x.reshape(-1, *x.shape[2:])
+        )
         # process rgb input
         if self.share_rgb_model:
             # pass all rgb obs to rgb model
@@ -176,6 +180,7 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         
         # concatenate all features
         result = torch.cat(features, dim=-1)
+        result = result.reshape(B, -1)
         return result
     
     @torch.no_grad()
@@ -184,9 +189,10 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         obs_shape_meta = self.shape_meta['obs']
         batch_size = 1
         for key, attr in obs_shape_meta.items():
-            shape = tuple(attr['shape'])
+            shape = list(attr['shape'])
+            shape = [batch_size, 2] + shape
             this_obs = torch.zeros(
-                (batch_size,) + shape, 
+                shape,
                 dtype=self.dtype,
                 device=self.device)
             example_obs_dict[key] = this_obs

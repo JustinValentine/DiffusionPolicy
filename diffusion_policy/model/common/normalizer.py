@@ -22,6 +22,7 @@ class LinearNormalizer(DictOfTensorMixin):
         output_min=-1.,
         range_eps=1e-4,
         fit_offset=True):
+        # TODO: allow for nested dicts, current workaround manually create SingleFieldLinearNormalizer and asign key
         if isinstance(data, dict):
             for key, value in data.items():
                 self.params_dict[key] =  _fit(value, 
@@ -51,12 +52,22 @@ class LinearNormalizer(DictOfTensorMixin):
     def __setitem__(self, key: str , value: 'SingleFieldLinearNormalizer'):
         self.params_dict[key] = value.params_dict
 
+    def _normalize_nested(self, x, params_dict, forward=True):
+        if not isinstance(x, dict):
+            return _normalize(x, params_dict, forward=forward)
+        else:
+            result = dict()
+            for key, value in x.items():
+                params = params_dict[key]
+                result[key] = self._normalize_nested(value, params, forward=forward)
+            return result
+
     def _normalize_impl(self, x, forward=True):
         if isinstance(x, dict):
             result = dict()
             for key, value in x.items():
                 params = self.params_dict[key]
-                result[key] = _normalize(value, params, forward=forward)
+                result[key] = self._normalize_nested(value, params, forward=forward)
             return result
         else:
             if '_default' not in self.params_dict:

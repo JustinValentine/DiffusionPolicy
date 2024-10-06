@@ -12,7 +12,7 @@ import json
 import hashlib
 import copy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.dataset.base_dataset import BaseImageDataset
+from diffusion_policy.dataset.base_dataset import BaseDataset
 from diffusion_policy.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 from diffusion_policy.common.replay_buffer import ReplayBuffer
 from diffusion_policy.common.sampler import (
@@ -25,7 +25,7 @@ from diffusion_policy.common.normalize_util import (
     array_to_stats
 )
 
-class RealWAMImageDataset(BaseImageDataset):
+class RealWAMImageDataset(BaseDataset):
     def __init__(self,
             shape_meta: dict,
             dataset_path: str,
@@ -165,13 +165,15 @@ class RealWAMImageDataset(BaseImageDataset):
             self.replay_buffer['action'])
         
         # obs
+        obs_normalizer = LinearNormalizer()
         for key in self.lowdim_keys:
-            normalizer[key] = SingleFieldLinearNormalizer.create_fit(
+            obs_normalizer[key] = SingleFieldLinearNormalizer.create_fit(
                 self.replay_buffer[key])
         
         # image
         for key in self.rgb_keys:
-            normalizer[key] = get_image_range_normalizer()
+            obs_normalizer[key] = get_image_range_normalizer()
+        normalizer['obs'] = obs_normalizer
         return normalizer
 
     def get_all_actions(self) -> torch.Tensor:

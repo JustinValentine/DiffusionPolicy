@@ -15,9 +15,9 @@ from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
-from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.env_runner.base_lowdim_runner import BaseLowdimRunner
+from diffusion_policy.env_runner.base_runner import BaseRunner
 from diffusion_policy.env.robomimic.robomimic_lowdim_wrapper import RobomimicLowdimWrapper
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
@@ -33,13 +33,13 @@ def create_env(env_meta, obs_keys):
         # only way to not show collision geometry
         # is to enable render_offscreen
         # which uses a lot of RAM.
-        render_offscreen=False,
+        render_offscreen=True,
         use_image_obs=False, 
     )
     return env
 
 
-class RobomimicLowdimRunner(BaseLowdimRunner):
+class RobomimicLowdimRunner(BaseRunner):
     """
     Robomimic envs already enforces number of steps.
     """
@@ -131,7 +131,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
                             input_pix_fmt='rgb24',
                             crf=crf,
                             thread_type='FRAME',
-                            thread_count=1
+                            thread_count=0
                         ),
                         file_path=None,
                         steps_per_render=steps_per_render
@@ -225,7 +225,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
         self.abs_action = abs_action
         self.tqdm_interval_sec = tqdm_interval_sec
 
-    def run(self, policy: BaseLowdimPolicy):
+    def run(self, policy: BasePolicy):
         device = policy.device
         dtype = policy.dtype
         env = self.env
@@ -344,7 +344,12 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
             value = np.mean(value)
             log_data[name] = value
 
+
         return log_data
+    
+    def close(self):
+        self.env.close(timeout=5)
+
 
     def undo_transform_action(self, action):
         raw_shape = action.shape

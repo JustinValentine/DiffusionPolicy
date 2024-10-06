@@ -15,9 +15,9 @@ from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
-from diffusion_policy.policy.base_image_policy import BaseImagePolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.env_runner.base_image_runner import BaseImageRunner
+from diffusion_policy.env_runner.base_runner import BaseRunner
 from diffusion_policy.env.robomimic.robomimic_image_wrapper import RobomimicImageWrapper
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
@@ -39,7 +39,7 @@ def create_env(env_meta, shape_meta, enable_render=True):
     return env
 
 
-class RobomimicImageRunner(BaseImageRunner):
+class RobomimicImageRunner(BaseRunner):
     """
     Robomimic envs already enforces number of steps.
     """
@@ -235,7 +235,7 @@ class RobomimicImageRunner(BaseImageRunner):
         self.abs_action = abs_action
         self.tqdm_interval_sec = tqdm_interval_sec
 
-    def run(self, policy: BaseImagePolicy):
+    def run(self, policy: BasePolicy):
         device = policy.device
         dtype = policy.dtype
         env = self.env
@@ -278,7 +278,10 @@ class RobomimicImageRunner(BaseImageRunner):
             done = False
             while not done:
                 # create obs dict
-                np_obs_dict = dict(obs)
+                np_obs_dict = {
+                    # handle n_latency_steps by discarding the last n_latency_steps
+                    "obs": obs
+                }
                 if self.past_action and (past_action is not None):
                     # TODO: not tested
                     np_obs_dict['past_action'] = past_action[
@@ -352,6 +355,9 @@ class RobomimicImageRunner(BaseImageRunner):
             log_data[name] = value
 
         return log_data
+    
+    def close(self):
+        self.env.close(timeout=5)
 
     def undo_transform_action(self, action):
         raw_shape = action.shape

@@ -7,7 +7,7 @@ from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 from diffusion_policy.model.common.normalizer import LinearNormalizer
-from diffusion_policy.policy.base_image_policy import BaseImagePolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.model.diffusion.conditional_unet1d import ConditionalUnet1DwDecTypeA, ConditionalUnet1DwDecTypeB, ConditionalUnet1DwDecTypeC
 from diffusion_policy.model.diffusion.mask_generator import LowdimMaskGenerator
 from diffusion_policy.common.robomimic_config_util import get_robomimic_config
@@ -20,7 +20,7 @@ from diffusion_policy.common.pytorch_util import dict_apply, replace_submodules
 import torchvision.transforms as T
 
 
-class AEDiffusionUnetHybridImagePolicy(BaseImagePolicy):
+class AEDiffusionUnetHybridImagePolicy(BasePolicy):
     def __init__(self, 
             shape_meta: dict,
             noise_scheduler: DDPMScheduler,

@@ -19,9 +19,11 @@ shape_meta: &shape_meta
   action: 
     shape: [7]
 
+resize_shape: null
+crop_shape: [76, 76]
 task_name: &task_name lift
 dataset_type: &dataset_type ph
-dataset_path: &dataset_path data/robomimic/datasets/${task.task_name}/${task.dataset_type}/image.hdf5
+dataset_path: &dataset_path data/robomimic_image/datasets/${task.task_name}/${task.dataset_type}/image.hdf5
 abs_action: &abs_action False
 
 env_runner:

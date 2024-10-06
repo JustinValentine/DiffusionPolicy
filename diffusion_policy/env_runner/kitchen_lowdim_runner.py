@@ -16,13 +16,13 @@ from diffusion_policy.gym_util.sync_vector_env import SyncVectorEnv
 from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
 
-from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.env_runner.base_lowdim_runner import BaseLowdimRunner
+from diffusion_policy.env_runner.base_runner import BaseRunner
 
 module_logger = logging.getLogger(__name__)
 
-class KitchenLowdimRunner(BaseLowdimRunner):
+class KitchenLowdimRunner(BaseRunner):
     def __init__(self,
             output_dir,
             dataset_dir,
@@ -193,7 +193,7 @@ class KitchenLowdimRunner(BaseLowdimRunner):
         self.tqdm_interval_sec = tqdm_interval_sec
 
 
-    def run(self, policy: BaseLowdimPolicy):
+    def run(self, policy: BasePolicy):
         device = policy.device
         dtype = policy.dtype
         env = self.env
@@ -317,3 +317,6 @@ class KitchenLowdimRunner(BaseLowdimRunner):
                 log_data[name] = p_n
 
         return log_data
+    
+    def close(self):
+        self.env.close(timeout=5)

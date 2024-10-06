@@ -1,14 +1,14 @@
 from typing import Dict
 import torch
 from diffusion_policy.model.common.normalizer import LinearNormalizer
-from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 
 from robomimic.algo import algo_factory
 from robomimic.algo.algo import PolicyAlgo
 import robomimic.utils.obs_utils as ObsUtils
 from diffusion_policy.common.robomimic_config_util import get_robomimic_config
 
-class RobomimicLowdimPolicy(BaseLowdimPolicy):
+class RobomimicLowdimPolicy(BasePolicy):
     def __init__(self, 
             action_dim, 
             obs_dim,

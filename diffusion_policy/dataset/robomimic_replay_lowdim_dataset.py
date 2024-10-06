@@ -5,7 +5,7 @@ import h5py
 from tqdm import tqdm
 import copy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.dataset.base_dataset import BaseLowdimDataset, LinearNormalizer
+from diffusion_policy.dataset.base_dataset import BaseDataset, LinearNormalizer
 from diffusion_policy.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 from diffusion_policy.common.replay_buffer import ReplayBuffer
@@ -18,7 +18,7 @@ from diffusion_policy.common.normalize_util import (
     array_to_stats
 )
 
-class RobomimicReplayLowdimDataset(BaseLowdimDataset):
+class RobomimicReplayLowdimDataset(BaseDataset):
     def __init__(self,
             dataset_path: str,
             horizon=1,

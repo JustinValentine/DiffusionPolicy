@@ -1,0 +1,17 @@
+
+_target_: diffusion_policy.model.diffusion.transformer_for_diffusion.TransformerForDiffusion
+input_dim: null # determined from obs_encoder in python
+horizon: ${horizon}
+n_obs_steps: ${n_obs_steps}
+global_cond_dim: null
+
+n_layer: 8
+n_head: 4
+n_emb: 256
+p_drop_emb: 0.0
+p_drop_attn: 0.3
+
+causal_attn: True
+time_as_cond: True # if false, use BERT like encoder only arch, time as input
+obs_as_cond: ${obs_as_global_cond}
+n_cond_layers: 0 # >0: use transformer encoder for cond, otherwise use MLP

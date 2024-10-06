@@ -10,7 +10,7 @@ class  VideoRecordingWrapper(gym.Wrapper):
             mode='rgb_array',
             file_path=None,
             steps_per_render=1,
-            render_seq=True,
+            render_seq=False,
             render_args={},
             **kwargs
         ):

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from diffusion_policy.model.common.normalizer import LinearNormalizer
-from diffusion_policy.policy.base_image_policy import BaseImagePolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.robomimic_config_util import get_robomimic_config
 from robomimic.algo import algo_factory
 from robomimic.algo.algo import PolicyAlgo
@@ -13,7 +13,7 @@ import diffusion_policy.model.vision.crop_randomizer as dmvc
 from diffusion_policy.common.pytorch_util import dict_apply, replace_submodules
 
 
-class IbcDfoHybridImagePolicy(BaseImagePolicy):
+class IbcDfoHybridImagePolicy(BasePolicy):
     def __init__(self,
             shape_meta: dict,
             horizon, 

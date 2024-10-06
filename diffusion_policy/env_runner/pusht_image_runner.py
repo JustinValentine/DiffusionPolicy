@@ -14,11 +14,11 @@ from diffusion_policy.gym_util.async_vector_env import AsyncVectorEnv
 from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
 
-from diffusion_policy.policy.base_image_policy import BaseImagePolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.env_runner.base_image_runner import BaseImageRunner
+from diffusion_policy.env_runner.base_runner import BaseRunner
 
-class PushTImageRunner(BaseImageRunner):
+class PushTImageRunner(BaseRunner):
     def __init__(self,
             output_dir,
             n_train=10,
@@ -157,7 +157,7 @@ class PushTImageRunner(BaseImageRunner):
         self.max_steps = max_steps
         self.tqdm_interval_sec = tqdm_interval_sec
     
-    def run(self, policy: BaseImagePolicy):
+    def run(self, policy: BasePolicy):
         device = policy.device
         dtype = policy.dtype
         env = self.env
@@ -264,3 +264,6 @@ class PushTImageRunner(BaseImageRunner):
             log_data[name] = value
 
         return log_data
+    
+    def close(self):
+        self.env.close(timeout=5)

@@ -23,8 +23,8 @@ import shutil
 from diffusion_policy.common.pytorch_util import dict_apply, optimizer_to
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.bet_lowdim_policy import BETLowdimPolicy
-from diffusion_policy.dataset.base_dataset import BaseLowdimDataset
-from diffusion_policy.env_runner.base_lowdim_runner import BaseLowdimRunner
+from diffusion_policy.dataset.base_dataset import BaseDataset
+from diffusion_policy.env_runner.base_runner import BaseRunner
 from diffusion_policy.common.checkpoint_util import TopKCheckpointManager
 from diffusion_policy.model.common.normalizer import (
     LinearNormalizer, 
@@ -71,9 +71,9 @@ class TrainBETLowdimWorkspace(BaseWorkspace):
                 self.load_checkpoint(path=lastest_ckpt_path)
 
         # configure dataset
-        dataset: BaseLowdimDataset
+        dataset: BaseDataset
         dataset = hydra.utils.instantiate(cfg.task.dataset)
-        assert isinstance(dataset, BaseLowdimDataset)
+        assert isinstance(dataset, BaseDataset)
         train_dataloader = DataLoader(dataset, **cfg.dataloader)
 
         # configure validation dataset
@@ -97,11 +97,11 @@ class TrainBETLowdimWorkspace(BaseWorkspace):
                     dataset.get_all_actions()))
 
         # configure env runner
-        env_runner: BaseLowdimRunner
+        env_runner: BaseRunner
         env_runner = hydra.utils.instantiate(
             cfg.task.env_runner,
             output_dir=self.output_dir)
-        assert isinstance(env_runner, BaseLowdimRunner)
+        assert isinstance(env_runner, BaseRunner)
 
         # configure logging
         wandb_run = wandb.init(

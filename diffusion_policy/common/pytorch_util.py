@@ -1,19 +1,21 @@
-from typing import Dict, Callable, List
+from typing import Mapping, Dict, Callable, List, Union
 import collections
 import torch
 import torch.nn as nn
 
+NestedDict = Union[torch.Tensor, Mapping[str, 'NestedDict']]
+
 def dict_apply(
-        x: Dict[str, torch.Tensor], 
+        x: NestedDict, 
         func: Callable[[torch.Tensor], torch.Tensor]
-        ) -> Dict[str, torch.Tensor]:
-    result = dict()
-    for key, value in x.items():
-        if isinstance(value, dict):
+        ) -> NestedDict:
+    if not isinstance(x, dict):
+        return func(x)
+    else:
+        result = dict()
+        for key, value in x.items():
             result[key] = dict_apply(value, func)
-        else:
-            result[key] = func(value)
-    return result
+        return result
 
 def pad_remaining_dims(x, target):
     assert x.shape == target.shape[:len(x.shape)]

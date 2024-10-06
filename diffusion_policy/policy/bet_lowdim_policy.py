@@ -5,12 +5,12 @@ from omegaconf import OmegaConf
 import torch.nn.functional as F
 
 from diffusion_policy.model.common.normalizer import LinearNormalizer
-from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.model.bet.action_ae.discretizers.k_means import KMeansDiscretizer
 from diffusion_policy.model.bet.latent_generators.mingpt import MinGPT
 from diffusion_policy.model.bet.utils import eval_mode
 
-class BETLowdimPolicy(BaseLowdimPolicy):
+class BETLowdimPolicy(BasePolicy):
     def __init__(self, 
             action_ae: KMeansDiscretizer, 
             obs_encoding_net: nn.Module, 

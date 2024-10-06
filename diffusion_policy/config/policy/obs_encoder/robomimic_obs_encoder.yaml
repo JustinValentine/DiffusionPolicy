@@ -1,0 +1,7 @@
+_target_: diffusion_policy.model.diffusion.robomimic_obs_encoder.RobomimicObsEncoder
+shape_meta: ${shape_meta}
+crop_shape: ${task.crop_shape} 
+obs_encoder_group_norm: True
+eval_fixed_crop: True
+n_obs_steps: ${n_obs_steps}
+flatten_time: True

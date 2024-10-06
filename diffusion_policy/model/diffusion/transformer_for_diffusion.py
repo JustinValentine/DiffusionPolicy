@@ -2,6 +2,7 @@ from typing import Union, Optional, Tuple
 import logging
 import torch
 import torch.nn as nn
+from omegaconf import DictConfig
 from diffusion_policy.model.diffusion.positional_embedding import SinusoidalPosEmb
 from diffusion_policy.model.common.module_attr_mixin import ModuleAttrMixin
 
@@ -10,10 +11,9 @@ logger = logging.getLogger(__name__)
 class TransformerForDiffusion(ModuleAttrMixin):
     def __init__(self,
             input_dim: int,
-            output_dim: int,
             horizon: int,
             n_obs_steps: int = None,
-            cond_dim: int = 0,
+            global_cond_dim: int = 0,
             n_layer: int = 12,
             n_head: int = 12,
             n_emb: int = 768,
@@ -35,7 +35,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
         if not time_as_cond:
             T += 1
             T_cond -= 1
-        obs_as_cond = cond_dim > 0
+        obs_as_cond = global_cond_dim > 0
         if obs_as_cond:
             assert time_as_cond
             T_cond += n_obs_steps
@@ -50,7 +50,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
         self.cond_obs_emb = None
         
         if obs_as_cond:
-            self.cond_obs_emb = nn.Linear(cond_dim, n_emb)
+            self.cond_obs_emb = nn.Linear(global_cond_dim, n_emb)
 
         self.cond_pos_emb = None
         self.encoder = None
@@ -138,7 +138,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
 
         # decoder head
         self.ln_f = nn.LayerNorm(n_emb)
-        self.head = nn.Linear(n_emb, output_dim)
+        self.head = nn.Linear(n_emb, input_dim)
             
         # constants
         self.T = T
@@ -256,21 +256,28 @@ class TransformerForDiffusion(ModuleAttrMixin):
         ]
         return optim_groups
 
+    def get_optimizer(self, cfg: DictConfig) -> torch.optim.Optimizer:
+        return self.configure_optimizers(
+            weight_decay=cfg.weight_decay,
+            learning_rate=cfg.learning_rate,
+            betas=tuple(cfg.betas),
+        )
 
     def configure_optimizers(self, 
             learning_rate: float=1e-4, 
             weight_decay: float=1e-3,
-            betas: Tuple[float, float]=(0.9,0.95)):
+            betas: Tuple[float, float]=(0.9,0.95),
+            eps: float=1e-8):
         optim_groups = self.get_optim_groups(weight_decay=weight_decay)
         optimizer = torch.optim.AdamW(
-            optim_groups, lr=learning_rate, betas=betas
+            optim_groups, lr=learning_rate, betas=betas, eps=eps
         )
         return optimizer
 
     def forward(self, 
         sample: torch.Tensor, 
         timestep: Union[torch.Tensor, float, int], 
-        cond: Optional[torch.Tensor]=None, **kwargs):
+        global_cond: Optional[torch.Tensor]=None, **kwargs):
         """
         x: (B,T,input_dim)
         timestep: (B,) or int, diffusion step
@@ -309,7 +316,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
             # encoder
             cond_embeddings = time_emb
             if self.obs_as_cond:
-                cond_obs_emb = self.cond_obs_emb(cond)
+                cond_obs_emb = self.cond_obs_emb(global_cond)
                 # (B,To,n_emb)
                 cond_embeddings = torch.cat([cond_embeddings, cond_obs_emb], dim=1)
             tc = cond_embeddings.shape[1]
@@ -348,7 +355,6 @@ def test():
     # GPT with time embedding
     transformer = TransformerForDiffusion(
         input_dim=16,
-        output_dim=16,
         horizon=8,
         n_obs_steps=4,
         # cond_dim=10,
@@ -366,10 +372,9 @@ def test():
     # GPT with time embedding and obs cond
     transformer = TransformerForDiffusion(
         input_dim=16,
-        output_dim=16,
         horizon=8,
         n_obs_steps=4,
-        cond_dim=10,
+        global_cond_dim=10,
         causal_attn=True,
         # time_as_cond=False,
         # n_cond_layers=4
@@ -384,10 +389,9 @@ def test():
     # GPT with time embedding and obs cond and encoder
     transformer = TransformerForDiffusion(
         input_dim=16,
-        output_dim=16,
         horizon=8,
         n_obs_steps=4,
-        cond_dim=10,
+        global_cond_dim=10,
         causal_attn=True,
         # time_as_cond=False,
         n_cond_layers=4
@@ -402,7 +406,6 @@ def test():
     # BERT with time embedding token
     transformer = TransformerForDiffusion(
         input_dim=16,
-        output_dim=16,
         horizon=8,
         n_obs_steps=4,
         # cond_dim=10,

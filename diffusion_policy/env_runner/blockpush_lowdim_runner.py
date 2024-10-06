@@ -14,11 +14,11 @@ from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
 from gym.wrappers import FlattenObservation
 
-from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
+from diffusion_policy.policy.base_policy import BasePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.env_runner.base_lowdim_runner import BaseLowdimRunner
+from diffusion_policy.env_runner.base_runner import BaseRunner
 
-class BlockPushLowdimRunner(BaseLowdimRunner):
+class BlockPushLowdimRunner(BaseRunner):
     def __init__(self,
             output_dir,
             n_train=10,
@@ -147,7 +147,7 @@ class BlockPushLowdimRunner(BaseLowdimRunner):
         self.obs_eef_target = obs_eef_target
 
 
-    def run(self, policy: BaseLowdimPolicy):
+    def run(self, policy: BasePolicy):
         device = policy.device
         dtype = policy.dtype
         env = self.env
@@ -291,3 +291,6 @@ class BlockPushLowdimRunner(BaseLowdimRunner):
                 log_data[key] = prob
 
         return log_data
+    
+    def close(self):
+        self.env.close(timeout=5)

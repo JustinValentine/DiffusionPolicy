@@ -7,9 +7,9 @@ from diffusion_policy.common.replay_buffer import ReplayBuffer
 from diffusion_policy.common.sampler import (
     SequenceSampler, get_val_mask, downsample_mask)
 from diffusion_policy.model.common.normalizer import LinearNormalizer
-from diffusion_policy.dataset.base_dataset import BaseLowdimDataset
+from diffusion_policy.dataset.base_dataset import BaseDataset
 
-class PushTLowdimDataset(BaseLowdimDataset):
+class PushTLowdimDataset(BaseDataset):
     def __init__(self, 
             zarr_path, 
             horizon=1,

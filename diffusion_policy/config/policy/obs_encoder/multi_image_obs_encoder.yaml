@@ -1,0 +1,12 @@
+_target_: diffusion_policy.model.vision.multi_image_obs_encoder.MultiImageObsEncoder
+shape_meta: ${shape_meta}
+rgb_model:
+  _target_: diffusion_policy.model.vision.model_getter.get_resnet
+  name: resnet18
+  weights: null
+resize_shape: ${task.resize_shape}
+crop_shape: ${task.crop_shape}
+random_crop: True
+use_group_norm: True
+share_rgb_model: False
+imagenet_norm: True

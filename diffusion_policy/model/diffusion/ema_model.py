@@ -1,6 +1,8 @@
 import copy
 import torch
 from torch.nn.modules.batchnorm import _BatchNorm
+from dataclasses import dataclass
+from hydra.core.config_store import ConfigStore
 
 class EMAModel:
     """
@@ -86,3 +88,15 @@ class EMAModel:
         # verify that iterating over module and then parameters is identical to parameters recursively.
         # assert old_all_dataptrs == all_dataptrs
         self.optimization_step += 1
+
+# NOTE: Unsure if mixing structured config and yaml config is a good idea.
+# Results in more searching for associated config.
+@dataclass
+class EMAConfig:
+    _target_: str = "diffusion_policy.model.diffusion.ema_model.EMAModel"
+    update_after_step: int = 0
+    inv_gamma: float = 1.0
+    power: float = 0.75
+    min_value: float = 0.0
+    max_value: float = 0.9999
+

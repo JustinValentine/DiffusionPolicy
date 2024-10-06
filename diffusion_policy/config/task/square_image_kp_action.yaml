@@ -19,6 +19,8 @@ task_name: &task_name square
 dataset_type: &dataset_type ph
 dataset_path: &dataset_path data/robomimic/datasets/${task_name}/${dataset_type}/kp_image.hdf5
 abs_action: &abs_action False
+resize_shape: null
+crop_shape: [76, 76]
 
 env_runner:
   _target_: diffusion_policy.env_runner.robomimic_keypoints_runner.RobomimicKeypointsRunner

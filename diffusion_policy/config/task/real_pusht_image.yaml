@@ -28,7 +28,7 @@ shape_meta: &shape_meta
     shape: [2]
 
 env_runner:
-  _target_: diffusion_policy.env_runner.real_pusht_image_runner.RealPushTImageRunner
+  _target_: diffusion_policy.env_runner.dummy_runner.DummyRunner
 
 dataset:
   _target_: diffusion_policy.dataset.real_pusht_image_dataset.RealPushTImageDataset
