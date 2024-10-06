@@ -1,7 +1,7 @@
-name: robodiff
+name: robodiff-arm64
 channels:
-  - pytorch
   - conda-forge
+  - pytorch
 dependencies:
   - python=3.9
   - pip=22.2.2
@@ -42,12 +42,13 @@ dependencies:
   - diffusers=0.11.1
   - av=10.0.0
   - cmake=3.24.3
+  #- mkl < 2022
   # trick to force reinstall imagecodecs via pip
   - imagecodecs==2022.8.8
   - pip:
     - ray[default,tune]==2.2.0
     - pygame==2.1.2
-    - robomimic==0.2.0
+    - robomimic==0.3.0
     - pytorchvideo==0.1.5
     - atomics==1.0.2
     # No support for jpeg-xl for MacOS
