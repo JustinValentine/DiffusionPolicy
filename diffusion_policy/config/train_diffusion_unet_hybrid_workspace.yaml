@@ -1,5 +1,5 @@
 defaults:
-  - task: lift_image
+  - task: square_image_abs
   - ema: ema
   - monitoring
   - data_loader/image@_global_
@@ -28,10 +28,6 @@ obs_as_global_cond: True
 obs_as_local_cond: False
 pred_action_steps_only: False
 num_inference_steps: 100
-
-policy:
-  inner_model:
-    down_dims: [256,512,1024]
 
 checkpoint:
   topk:

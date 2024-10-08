@@ -1,0 +1,6 @@
+_target_: diffusion_policy.noise_schedulers.ExponentialNoiseScheduler
+_recursive_: False
+sigma_min: ${policy.sigma_min}
+sigma_max: ${policy.sigma_max}
+
+

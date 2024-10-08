@@ -1,0 +1,6 @@
+_target_: diffusion_policy.common.distributions.RandLogNormal
+_recursive_: False
+loc: 0
+scale: 1
+min_value: ${policy.sigma_min}
+max_value: ${policy.sigma_max}

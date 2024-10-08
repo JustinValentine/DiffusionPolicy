@@ -5,12 +5,12 @@ defaults:
   - data_loader/image@_global_
   - training: training
   - optimizer: adam
-  - policy: diffusion_policy
+  - policy: continuous_time_diffusion_policy
   - override policy/inner_model: unet
   - override policy/obs_encoder: multi_image_obs_encoder
   - _self_
 
-name: train_diffusion_unet_image
+name: train_continuous_diffusion_unet_image
 _target_: diffusion_policy.workspace.train_diffusion_workspace.TrainDiffusionWorkspace
 
 task_name: ${task.name}
@@ -27,7 +27,7 @@ keypoint_visible_rate: 1.0
 obs_as_global_cond: True
 obs_as_local_cond: False
 pred_action_steps_only: False
-num_inference_steps: 100
+num_inference_steps: 5
 
 checkpoint:
   topk:

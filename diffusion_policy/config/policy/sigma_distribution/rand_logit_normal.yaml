@@ -1,0 +1,5 @@
+_target_: diffusion_policy.common.distributions.RandLogitNormal
+_recursive_: False
+loc: 0
+scale: 1
+device: ${training.device}

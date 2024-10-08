@@ -1,0 +1,2 @@
+_target_: diffusion_policy.samplers.euler.EulerSampler
+_recursive_: False

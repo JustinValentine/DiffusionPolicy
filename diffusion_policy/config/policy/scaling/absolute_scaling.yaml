@@ -1,0 +1,2 @@
+_target_: diffusion_policy.model.diffusion.scaling.Absolute
+_recursive_: False
