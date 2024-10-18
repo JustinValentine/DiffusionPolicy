@@ -1,0 +1,5 @@
+_target_: diffusion_policy.noise_schedulers.LinearNoiseScheduler
+_recursive_: False
+sigma_min: ??
+sigma_max: ??
+device: ${training.device}

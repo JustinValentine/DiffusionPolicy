@@ -1,8 +1,6 @@
 import copy
 import torch
-from torch.nn.modules.batchnorm import _BatchNorm
-from dataclasses import dataclass
-from hydra.core.config_store import ConfigStore
+import numpy as np
 
 class EMAModel:
     """
@@ -30,7 +28,8 @@ class EMAModel:
             min_value (float): The minimum EMA decay rate. Default: 0.
         """
 
-        self.averaged_model = model
+        self.model = model
+        self.averaged_model = copy.deepcopy(model)
         self.averaged_model.eval()
         self.averaged_model.requires_grad_(False)
 
@@ -55,48 +54,118 @@ class EMAModel:
 
         return max(self.min_value, min(value, self.max_value))
 
+    def to(self, device):
+        self.averaged_model.to(device)
+
+    @torch.no_grad()
+    def get(self):
+        return self.averaged_model
+
     @torch.no_grad()
     def step(self, new_model):
         self.decay = self.get_decay(self.optimization_step)
 
-        # old_all_dataptrs = set()
-        # for param in new_model.parameters():
-        #     data_ptr = param.data_ptr()
-        #     if data_ptr != 0:
-        #         old_all_dataptrs.add(data_ptr)
-
-        all_dataptrs = set()
         for module, ema_module in zip(new_model.modules(), self.averaged_model.modules()):            
             for param, ema_param in zip(module.parameters(recurse=False), ema_module.parameters(recurse=False)):
                 # iterative over immediate parameters only.
                 if isinstance(param, dict):
                     raise RuntimeError('Dict parameter not supported')
-                
-                # data_ptr = param.data_ptr()
-                # if data_ptr != 0:
-                #     all_dataptrs.add(data_ptr)
-
-                if isinstance(module, _BatchNorm):
-                    # skip batchnorms
-                    ema_param.copy_(param.to(dtype=ema_param.dtype).data)
                 elif not param.requires_grad:
                     ema_param.copy_(param.to(dtype=ema_param.dtype).data)
                 else:
                     ema_param.mul_(self.decay)
                     ema_param.add_(param.data.to(dtype=ema_param.dtype), alpha=1 - self.decay)
+        
+        for p_net, p_ema in zip(new_model.buffers(), self.averaged_model.buffers()):
+            p_ema.copy_(p_net)
 
-        # verify that iterating over module and then parameters is identical to parameters recursively.
-        # assert old_all_dataptrs == all_dataptrs
         self.optimization_step += 1
 
-# NOTE: Unsure if mixing structured config and yaml config is a good idea.
-# Results in more searching for associated config.
-@dataclass
-class EMAConfig:
-    _target_: str = "diffusion_policy.model.diffusion.ema_model.EMAModel"
-    update_after_step: int = 0
-    inv_gamma: float = 1.0
-    power: float = 0.75
-    min_value: float = 0.0
-    max_value: float = 0.9999
+    def state_dict(self):
+        return {
+            "optimization_step": self.optimization_step,
+            "averaged_model": self.averaged_model.state_dict(),
+        }
+
+    def load_state_dict(self, state_dict):
+        self.optimization_step = state_dict["optimization_step"]
+        self.averaged_model.load_state_dict(state_dict["averaged_model"])
+
+
+class PowerModel:
+    """
+    Power function of models weights
+    """
+
+    def __init__(
+        self,
+        model,
+        stds=[0.050, 0.100]
+    ):
+
+        self.model = model
+        self.averaged_models = [copy.deepcopy(model) for _ in stds]
+        self.stds = stds
+        for averaged_model in self.averaged_models:
+            averaged_model.eval()
+            averaged_model.requires_grad_(False)
+
+        self.optimization_step = 1
+
+    def std_to_exp(self, std):
+        tmp = std ** -2
+        exp = np.roots([1, 7, 16 - tmp, 12 -tmp]).real.max()
+        return exp
+
+
+    def get_decay(self, gamma):
+        """
+        Compute the decay factor for the exponential moving average.
+        """
+
+        beta = (1 - 1/self.optimization_step) ** (gamma + 1) 
+        return beta
+
+    def to(self, device):
+        for model in self.averaged_models:
+            model.to(device)
+
+    @torch.no_grad()
+    def get(self):
+        return self.averaged_models
+
+    @torch.no_grad()
+    def step(self, new_model):
+        for std, ema in zip(self.stds, self.averaged_models):
+            gamma = self.std_to_exp(std)
+            decay = self.get_decay(gamma)
+
+            for module, ema_module in zip(new_model.modules(), ema.modules()):            
+                for param, ema_param in zip(module.parameters(recurse=False), ema_module.parameters(recurse=False)):
+                    # iterative over immediate parameters only.
+                    if isinstance(param, dict):
+                        raise RuntimeError('Dict parameter not supported')
+                    elif not param.requires_grad:
+                        ema_param.copy_(param.to(dtype=ema_param.dtype).data)
+                    else:
+                        ema_param.mul_(decay)
+                        ema_param.add_(param.data.to(dtype=ema_param.dtype), alpha=(1 - decay))
+    
+            for p_net, p_ema in zip(new_model.buffers(), ema.buffers()):
+                p_ema.copy_(p_net)
+
+        self.optimization_step += 1
+
+    def state_dict(self):
+        return dict(
+            stds=self.stds,
+            optimization_step=self.optimization_step,
+            averaged_models=[model.state_dict() for model in self.averaged_models],
+        )
+
+    def load_state_dict(self, state_dict):
+        self.stds = state_dict['stds']
+        self.optimization_step = state_dict['optimization_step']
+        for model, model_state_dict in zip(self.averaged_models, state_dict['averaged_models']):
+            model.load_state_dict(model_state_dict)
 

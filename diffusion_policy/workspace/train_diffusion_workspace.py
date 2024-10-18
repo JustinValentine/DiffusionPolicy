@@ -46,9 +46,10 @@ class TrainDiffusionWorkspace(BaseWorkspace):
         # configure model
         self.model: BasePolicy = hydra.utils.instantiate(cfg.policy)
 
-        self.ema_model: BasePolicy = None
+        self.ema: EMAModel = None
         if cfg.training.use_ema:
-            self.ema_model = copy.deepcopy(self.model)
+            # ensure normalized and device set before passing in model to ema
+            self.ema = hydra.utils.instantiate(cfg.ema, model=self.model)
 
         # configure training state
         self.optimizer = self.model.get_optimizer(cfg.optimizer)
@@ -70,7 +71,7 @@ class TrainDiffusionWorkspace(BaseWorkspace):
             cfg.training.sample_every = 1
             cfg.dataloader.batch_size = 4
             cfg.val_dataloader.batch_size = 4
-            cfg.checkpoint.save_last_ckpt = False
+            cfg.checkpoint.save_last_ckpt = True
             cfg.checkpoint.save_last_snapshot = False
             cfg.checkpoint.topk.k = 1
 
@@ -82,12 +83,6 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                 cfg.task.env_runner.max_steps = 8
                 cfg.task.env_runner.n_envs = None
 
-        # resume training
-        if cfg.training.resume:
-            lastest_ckpt_path = self.get_checkpoint_path()
-            if lastest_ckpt_path.is_file():
-                print(f"Resuming from checkpoint {lastest_ckpt_path}")
-                self.load_checkpoint(path=lastest_ckpt_path)
 
         # configure dataset
         dataset: BaseDataset
@@ -106,8 +101,18 @@ class TrainDiffusionWorkspace(BaseWorkspace):
         )
 
         self.model.set_normalizer(normalizer)
-        if cfg.training.use_ema:
-            self.ema_model.set_normalizer(normalizer)
+
+        # resume training
+        if cfg.training.resume:
+            lastest_ckpt_path = self.get_checkpoint_path()
+            if lastest_ckpt_path.is_file():
+                print(f"Resuming from checkpoint {lastest_ckpt_path}")
+                self.load_checkpoint(path=lastest_ckpt_path)
+
+        # device transfer
+        device = torch.device(cfg.training.device)
+        self.model.to(device)
+        self.ema.to(device)
 
         # configure lr scheduler
         lr_scheduler = get_scheduler(
@@ -120,11 +125,6 @@ class TrainDiffusionWorkspace(BaseWorkspace):
             # however huggingface diffusers steps it every batch
             last_epoch=self.global_step - 1,
         )
-
-        # configure ema
-        ema: EMAModel = None
-        if cfg.training.use_ema:
-            ema = hydra.utils.instantiate(cfg.ema, model=self.ema_model)
 
         # configure env
         env_runner: BaseRunner
@@ -145,16 +145,6 @@ class TrainDiffusionWorkspace(BaseWorkspace):
             }
         )
 
-        # configure checkpoint
-        topk_manager = TopKCheckpointManager(
-            save_dir=os.path.join(self.output_dir, "checkpoints"), **cfg.checkpoint.topk
-        )
-
-        # device transfer
-        device = torch.device(cfg.training.device)
-        self.model.to(device)
-        if self.ema_model is not None:
-            self.ema_model.to(device)
         optimizer_to(self.optimizer, device)
 
         # save batch for sampling
@@ -204,7 +194,7 @@ class TrainDiffusionWorkspace(BaseWorkspace):
 
                         # update ema
                         if cfg.training.use_ema:
-                            ema.step(self.model)
+                            self.ema.step(self.model)
 
                         # logging
                         raw_loss_cpu = raw_loss.item()
@@ -237,7 +227,11 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                 # ========= eval for this epoch ==========
                 policy = self.model
                 if cfg.training.use_ema:
-                    policy = self.ema_model
+                    policy = self.ema.get()
+                    if isinstance(policy, list):
+                        policy = policy[0]
+                policy.set_normalizer(normalizer)
+                policy.to(device)
                 policy.eval()
 
                 # run rollout
@@ -280,7 +274,6 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                             train_sampling_batch,
                             lambda x: x.to(device, non_blocking=True),
                         )
-                        # TODO: fix so dataloader outputs dict - would also need to update compute_loss on lowdim policies
                         obs_dict = {"obs": batch["obs"]}
                         gt_action = batch["action"]
 
@@ -324,28 +317,16 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                             # single batch
                             break
 
+                if cfg.checkpoint.save_last_ckpt:
+                    self.save_checkpoint()
+
+                if cfg.checkpoint.save_last_snapshot:
+                    self.save_snapshot()
+
                 # checkpoint
                 if (self.epoch % cfg.training.checkpoint_every) == 0:
-                    # checkpointing
-                    if cfg.checkpoint.save_last_ckpt:
-                        self.save_checkpoint()
-                    if cfg.checkpoint.save_last_snapshot:
-                        self.save_snapshot()
+                    self.save_checkpoint(tag=f"epoch_{self.epoch}")
 
-                    # sanitize metric names
-                    metric_dict = dict()
-                    for key, value in step_log.items():
-                        new_key = key.replace("/", "_")
-                        metric_dict[new_key] = value
-
-                    # We can't copy the last checkpoint here
-                    # since save_checkpoint uses threads.
-                    # therefore at this point the file might have beeempty!
-                    topk_ckpt_path = topk_manager.get_ckpt_path(metric_dict)
-
-                    if topk_ckpt_path is not None:
-                        self.save_checkpoint(path=topk_ckpt_path)
-                # ========= eval end for this epoch ==========
                 policy.train()
 
                 # end of epoch

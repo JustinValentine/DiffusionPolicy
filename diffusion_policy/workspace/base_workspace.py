@@ -63,6 +63,10 @@ class BaseWorkspace:
             elif key in include_keys:
                 payload['pickles'][key] = dill.dumps(value)
         if use_thread:
+            # join before starting new thread
+            if self._saving_thread is not None:
+                self._saving_thread.join()
+
             self._saving_thread = threading.Thread(
                 target=lambda : torch.save(payload, path.open('wb'), pickle_module=dill))
             self._saving_thread.start()
@@ -77,7 +81,8 @@ class BaseWorkspace:
         if exclude_keys is None:
             exclude_keys = tuple()
         if include_keys is None:
-            include_keys = payload['pickles'].keys()
+            include_keys = set(payload['pickles'].keys())
+            include_keys -= set(exclude_keys)
 
         for key, value in payload['state_dicts'].items():
             if key not in exclude_keys:
@@ -129,6 +134,10 @@ class BaseWorkspace:
     @classmethod
     def create_from_snapshot(cls, path):
         return torch.load(open(path, 'rb'), pickle_module=dill)
+
+    def __del__(self):
+        if self._saving_thread is not None:
+            self._saving_thread.join()
 
 
 def _copy_to_cpu(x):
