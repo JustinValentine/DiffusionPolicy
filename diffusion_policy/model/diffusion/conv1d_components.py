@@ -25,7 +25,7 @@ class Conv1dBlock(nn.Module):
         Conv1d --> GroupNorm --> Mish
     '''
 
-    def __init__(self, inp_channels, out_channels, kernel_size, n_groups=8):
+    def __init__(self, inp_channels, out_channels, kernel_size, n_groups=8, dropout_p=0.0):
         super().__init__()
 
         self.block = nn.Sequential(
@@ -34,6 +34,7 @@ class Conv1dBlock(nn.Module):
             nn.GroupNorm(n_groups, out_channels),
             # Rearrange('batch channels 1 horizon -> batch channels horizon'),
             nn.Mish(),
+            nn.Dropout(dropout_p)
         )
 
     def forward(self, x):

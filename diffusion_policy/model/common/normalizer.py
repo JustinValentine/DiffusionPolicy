@@ -22,7 +22,7 @@ class LinearNormalizer(DictOfTensorMixin):
         output_min=-1.,
         range_eps=1e-4,
         fit_offset=True):
-        # TODO: allow for nested dicts, current workaround manually create SingleFieldLinearNormalizer and asign key
+        # TODO: allow for nested dicts, current workaround manually create SingleFieldLinearNormalizer and assign key
         if isinstance(data, dict):
             for key, value in data.items():
                 self.params_dict[key] =  _fit(value, 
