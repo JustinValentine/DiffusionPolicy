@@ -11,9 +11,10 @@ def append_zero(action):
 
 
 class NoiseScheduler(ABC):
-    def __init__(self, dtype=torch.float32):
+    def __init__(self, dtype=torch.float32, device="cpu"):
         super().__init__()
         self.dtype = dtype
+        self.device = device
 
     @abstractmethod
     def get_sigmas(self, n, *args, **kwargs):
@@ -22,7 +23,7 @@ class NoiseScheduler(ABC):
 
 class KarrasNoiseScheduler(NoiseScheduler):
     def __init__(self, sigma_min: float, sigma_max: float, rho=7.0, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+        super().__init__(dtype, device)
         self.rho = rho
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
@@ -41,8 +42,8 @@ class KarrasNoiseScheduler(NoiseScheduler):
 
 
 class ExponentialNoiseScheduler(NoiseScheduler):
-    def __init__(self, sigma_min: float, sigma_max: float, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+    def __init__(self, sigma_min: float, sigma_max: float, dtype=torch.float32, device="cpu", append_zero: bool = True):
+        super().__init__(dtype, device)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.append_zero = append_zero
@@ -57,8 +58,8 @@ class ExponentialNoiseScheduler(NoiseScheduler):
 
 
 class LinearNoiseScheduler(NoiseScheduler):
-    def __init__(self, sigma_min: float, sigma_max: float, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+    def __init__(self, sigma_min: float, sigma_max: float, dtype=torch.float32, device="cpu", append_zero: bool = True):
+        super().__init__(dtype, device)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.append_zero = append_zero
@@ -74,7 +75,7 @@ class LinearNoiseScheduler(NoiseScheduler):
 
 class CosineNoiseScheduler(NoiseScheduler):
     def __init__(self, s=0.008, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+        super().__init__(dtype, device)
         self.s = s
         self.append_zero = append_zero
 
@@ -102,7 +103,7 @@ class CosineNoiseScheduler(NoiseScheduler):
 
 class VENoiseScheduler(NoiseScheduler):
     def __init__(self, sigma_min: float, sigma_max: float, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+        super().__init__(dtype, device)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.append_zero = append_zero
@@ -122,7 +123,7 @@ class VENoiseScheduler(NoiseScheduler):
 
 class IDDPMNoiseScheduler(NoiseScheduler):
     def __init__(self, sigma_min: float, sigma_max: float, M=1000, j_0=0, C_1=0.001, C_2=0.008, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+        super().__init__(dtype, device)
         self.M = M
         self.j_0 = j_0
         self.C_1 = C_1
@@ -149,7 +150,7 @@ class IDDPMNoiseScheduler(NoiseScheduler):
 
 class VPNoiseScheduler(NoiseScheduler):
     def __init__(self, beta_d=19.9, beta_min=0.1, eps_s=1e-3, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+        super().__init__(dtype, device)
         self.beta_d = beta_d
         self.beta_min = beta_min
         self.eps_s = eps_s
@@ -166,7 +167,7 @@ class VPNoiseScheduler(NoiseScheduler):
 
 class PolyNoiseScheduler(NoiseScheduler):
     def __init__(self, sigma_min: float, sigma_max: float, rho=1.0, dtype=torch.float32, append_zero: bool = True):
-        super().__init__(dtype)
+        super().__init__(dtype, device)
         self.rho = rho
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
