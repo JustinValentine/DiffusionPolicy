@@ -9,7 +9,7 @@ import h5py
 import dill
 import math
 import wandb.sdk.data_types.video as wv
-from diffusion_policy.gym_util.async_vector_env import AsyncVectorEnv
+from diffusion_policy.gym_util.async_vector_env import CustomAsyncVectorEnv
 # from diffusion_policy.gym_util.sync_vector_env import SyncVectorEnv
 from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
@@ -180,7 +180,7 @@ class RobomimicLowdimRunner(BaseRunner):
             seed = test_start_seed + i
             enable_render = i < n_test_vis
 
-            def init_fn(env, seed=seed, 
+            def init_fn(env, 
                 enable_render=enable_render):
                 # setup rendering
                 # video_wrapper
@@ -197,13 +197,12 @@ class RobomimicLowdimRunner(BaseRunner):
                 # switch to seed reset
                 assert isinstance(env.env.env, RobomimicLowdimWrapper)
                 env.env.env.init_state = None
-                env.seed(seed)
 
             env_seeds.append(seed)
             env_prefixs.append('test/')
             env_init_fn_dills.append(dill.dumps(init_fn))
         
-        env = AsyncVectorEnv(env_fns)
+        env = CustomAsyncVectorEnv(env_fns, context="spawn", shared_memory=False)
         # env = SyncVectorEnv(env_fns)
 
         self.env_meta = env_meta
@@ -247,9 +246,13 @@ class RobomimicLowdimRunner(BaseRunner):
             this_local_slice = slice(0,this_n_active_envs)
             
             this_init_fns = self.env_init_fn_dills[this_global_slice]
+            this_seeds = self.env_seeds[this_global_slice]
             n_diff = n_envs - len(this_init_fns)
             if n_diff > 0:
+                # does not affect results, but incurs unnecessary computation
+                print("INFO: n_envs not a divsor of total environments, duplicating the first one")
                 this_init_fns.extend([self.env_init_fn_dills[0]]*n_diff)
+                this_seeds.extend([self.env_seeds[0]]*n_diff)
             assert len(this_init_fns) == n_envs
 
             # init envs
@@ -257,7 +260,7 @@ class RobomimicLowdimRunner(BaseRunner):
                 args_list=[(x,) for x in this_init_fns])
 
             # start rollout
-            obs = env.reset()
+            obs, info = env.reset(seed=this_seeds)
             past_action = None
             policy.reset()
 
@@ -302,8 +305,8 @@ class RobomimicLowdimRunner(BaseRunner):
                 if self.abs_action:
                     env_action = self.undo_transform_action(action)
 
-                obs, reward, done, info = env.step(env_action)
-                done = np.all(done)
+                obs, reward, terminated, truncated, info = env.step(env_action)
+                done = np.all(terminated | truncated)
                 past_action = action
 
                 # update pbar
@@ -317,14 +320,6 @@ class RobomimicLowdimRunner(BaseRunner):
         # log
         max_rewards = collections.defaultdict(list)
         log_data = dict()
-        # results reported in the paper are generated using the commented out line below
-        # which will only report and average metrics from first n_envs initial condition and seeds
-        # fortunately this won't invalidate our conclusion since
-        # 1. This bug only affects the variance of metrics, not their mean
-        # 2. All baseline methods are evaluated using the same code
-        # to completely reproduce reported numbers, uncomment this line:
-        # for i in range(len(self.env_fns)):
-        # and comment out this line
         for i in range(n_inits):
             seed = self.env_seeds[i]
             prefix = self.env_prefixs[i]
@@ -344,12 +339,10 @@ class RobomimicLowdimRunner(BaseRunner):
             value = np.mean(value)
             log_data[name] = value
 
-
         return log_data
     
     def close(self):
         self.env.close(timeout=5)
-
 
     def undo_transform_action(self, action):
         raw_shape = action.shape

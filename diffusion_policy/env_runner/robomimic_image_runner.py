@@ -9,8 +9,8 @@ import h5py
 import math
 import dill
 import wandb.sdk.data_types.video as wv
-from diffusion_policy.gym_util.async_vector_env import AsyncVectorEnv
-from diffusion_policy.gym_util.sync_vector_env import SyncVectorEnv
+from diffusion_policy.gym_util.async_vector_env import CustomAsyncVectorEnv
+# from diffusion_policy.gym_util.sync_vector_env import SyncVectorEnv
 from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
 from diffusion_policy.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
@@ -191,8 +191,9 @@ class RobomimicImageRunner(BaseRunner):
         for i in range(n_test):
             seed = test_start_seed + i
             enable_render = i < n_test_vis
-
-            def init_fn(env, seed=seed, 
+            
+            # NOTE: Better to do this from reset options?
+            def init_fn(env, 
                 enable_render=enable_render):
                 # setup rendering
                 # video_wrapper
@@ -209,14 +210,14 @@ class RobomimicImageRunner(BaseRunner):
                 # switch to seed reset
                 assert isinstance(env.env.env, RobomimicImageWrapper)
                 env.env.env.init_state = None
-                env.seed(seed)
 
             env_seeds.append(seed)
             env_prefixs.append('test/')
             env_init_fn_dills.append(dill.dumps(init_fn))
 
-        env = AsyncVectorEnv(env_fns, dummy_env_fn=dummy_env_fn, context="spawn")
-        # env = SyncVectorEnv(env_fns)
+        env = CustomAsyncVectorEnv(
+            env_fns, dummy_env_fn=dummy_env_fn, context="spawn", shared_memory=False
+        )
 
 
         self.env_meta = env_meta
@@ -257,9 +258,13 @@ class RobomimicImageRunner(BaseRunner):
             this_local_slice = slice(0,this_n_active_envs)
             
             this_init_fns = self.env_init_fn_dills[this_global_slice]
+            this_seeds = self.env_seeds[this_global_slice]
             n_diff = n_envs - len(this_init_fns)
             if n_diff > 0:
+                # does not affect results, but incurs unnecessary computation
+                print("INFO: n_envs not a divsor of total environments, duplicating the first one")
                 this_init_fns.extend([self.env_init_fn_dills[0]]*n_diff)
+                this_seeds.extend([self.env_seeds[0]]*n_diff)
             assert len(this_init_fns) == n_envs
 
             # init envs
@@ -267,7 +272,7 @@ class RobomimicImageRunner(BaseRunner):
                 args_list=[(x,) for x in this_init_fns])
 
             # start rollout
-            obs = env.reset()
+            obs, info = env.reset(seed=this_seeds)
             past_action = None
             policy.reset()
 
@@ -310,8 +315,8 @@ class RobomimicImageRunner(BaseRunner):
                 if self.abs_action:
                     env_action = self.undo_transform_action(action)
 
-                obs, reward, done, info = env.step(env_action)
-                done = np.all(done)
+                obs, reward, terminated, truncated, info = env.step(env_action)
+                done = np.all(terminated | truncated)
                 past_action = action
 
                 # update pbar
@@ -327,14 +332,6 @@ class RobomimicImageRunner(BaseRunner):
         # log
         max_rewards = collections.defaultdict(list)
         log_data = dict()
-        # results reported in the paper are generated using the commented out line below
-        # which will only report and average metrics from first n_envs initial condition and seeds
-        # fortunately this won't invalidate our conclusion since
-        # 1. This bug only affects the variance of metrics, not their mean
-        # 2. All baseline methods are evaluated using the same code
-        # to completely reproduce reported numbers, uncomment this line:
-        # for i in range(len(self.env_fns)):
-        # and comment out this line
         for i in range(n_inits):
             seed = self.env_seeds[i]
             prefix = self.env_prefixs[i]
@@ -347,7 +344,7 @@ class RobomimicImageRunner(BaseRunner):
             if video_path is not None:
                 sim_video = wandb.Video(video_path)
                 log_data[prefix+f'sim_video_{seed}'] = sim_video
-        
+
         # log aggregate metrics
         for prefix, value in max_rewards.items():
             name = prefix+'mean_score'

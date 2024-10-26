@@ -2,9 +2,9 @@ import os
 import numpy as np
 from typing import Optional
 
-import gym
-from gym import error, spaces
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import error, spaces
+from gymnasium.utils import seeding
 from . import utils
 from scipy.spatial.transform import Rotation as R
 import mujoco

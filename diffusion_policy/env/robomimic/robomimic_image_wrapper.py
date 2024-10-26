@@ -1,9 +1,7 @@
 from typing import List, Optional
-from matplotlib.pyplot import fill
 import numpy as np
-import gym
-from gym import spaces
-from omegaconf import OmegaConf
+import gymnasium as gym
+from gymnasium import spaces
 from robomimic.envs.env_robosuite import EnvRobosuite
 
 class RobomimicImageWrapper(gym.Env):
@@ -74,7 +72,8 @@ class RobomimicImageWrapper(gym.Env):
         np.random.seed(seed=seed)
         self._seed = seed
     
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        self.seed(seed)
         if self.init_state is not None:
             if not self.has_reset_before:
                 # the env must be fully reset at least once to ensure correct rendering
@@ -103,12 +102,12 @@ class RobomimicImageWrapper(gym.Env):
 
         # return obs
         obs = self.get_observation(raw_obs)
-        return obs
+        return obs, {}
     
     def step(self, action):
         raw_obs, reward, done, info = self.env.step(action)
         obs = self.get_observation(raw_obs)
-        return obs, reward, done, info
+        return obs, reward, done, False, info
     
     def render(self, mode='rgb_array'):
         if self.render_cache is None:

@@ -1,5 +1,5 @@
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 from collections import defaultdict, deque
 import dill
@@ -76,6 +76,7 @@ class MultiStepWrapper(gym.Wrapper):
         super().__init__(env)
         self._action_space = repeated_space(env.action_space, n_action_steps)
         self._observation_space = repeated_space(env.observation_space, n_obs_steps)
+        self.metadata = env.metadata
         self.max_episode_steps = max_episode_steps
         self.n_obs_steps = n_obs_steps
         self.n_action_steps = n_action_steps
@@ -88,9 +89,9 @@ class MultiStepWrapper(gym.Wrapper):
         self.done = list()
         self.info = defaultdict(lambda : deque(maxlen=n_obs_steps+1))
     
-    def reset(self):
+    def reset(self, seed=None, options=None):
         """Resets the environment using kwargs."""
-        obs = super().reset()
+        obs, info = super().reset(seed=seed)
 
         self.obs = deque([obs], maxlen=self.n_obs_steps+1)
         self.reward = list()
@@ -98,7 +99,7 @@ class MultiStepWrapper(gym.Wrapper):
         self.info = defaultdict(lambda : deque(maxlen=self.n_obs_steps+1))
 
         obs = self._get_obs(self.n_obs_steps)
-        return obs
+        return obs, {}
 
     def step(self, action):
         """
@@ -114,27 +115,30 @@ class MultiStepWrapper(gym.Wrapper):
             else:
                 a = act
 
-            observation, reward, done, info = super().step(a)
+            observation, reward, terminated, truncated, info = super().step(a)
 
             self.obs.append(observation)
             self.reward.append(reward)
             if (self.max_episode_steps is not None) \
                 and (len(self.reward) >= self.max_episode_steps):
                 # truncation
-                done = True
-            self.done.append(done)
+                truncated = True
+            self.done.append(terminated or truncated)
+
+            # TODO: should also store truncated separately
             self._add_info(info)
 
         observation = self._get_obs(self.n_obs_steps)
         reward = aggregate(self.reward, self.reward_agg_method)
         done = aggregate(self.done, 'max')
         info = dict_take_last_n(self.info, self.n_obs_steps)
-        return observation, reward, done, info
+        return observation, reward, done, False, info
 
     def _get_obs(self, n_steps=1):
         """
         Output (n_steps,) + obs_shape
         """
+        # TODO: this should also return info
         assert(len(self.obs) > 0)
         if isinstance(self.observation_space, spaces.Box):
             return stack_last_n_obs(self.obs, n_steps)
