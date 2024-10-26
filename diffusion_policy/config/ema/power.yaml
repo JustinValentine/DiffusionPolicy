@@ -1,2 +1,2 @@
 _target_: diffusion_policy.model.diffusion.ema_model.PowerModel
-stds: [0.050, 0.100]
+stds: [0.100, 0.150]

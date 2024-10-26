@@ -5,6 +5,8 @@ class DictOfTensorMixin(nn.Module):
     def __init__(self, params_dict=None):
         super().__init__()
         if params_dict is None:
+            # NOTE: this should probably be implemented as a buffer as the parameters are not trainable,
+            # this will simplify the ema weight update
             params_dict = nn.ParameterDict()
         self.params_dict = params_dict
 
@@ -28,8 +30,6 @@ class DictOfTensorMixin(nn.Module):
                 value: torch.Tensor
                 if key.startswith(prefix):
                     param_keys = key[len(prefix):].split('.')[1:]
-                    # if len(param_keys) == 0:
-                    #     import pdb; pdb.set_trace()
                     dfs_add(out_dict, param_keys, value.clone())
             return out_dict
 

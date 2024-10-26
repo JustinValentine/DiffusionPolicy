@@ -62,16 +62,21 @@ class BaseWorkspace:
                         payload['state_dicts'][key] = value.state_dict()
             elif key in include_keys:
                 payload['pickles'][key] = dill.dumps(value)
+
+        def _save():
+            with path.open("wb") as f:
+                torch.save(payload, f, pickle_module=dill)
+
         if use_thread:
             # join before starting new thread
             if self._saving_thread is not None:
                 self._saving_thread.join()
 
             self._saving_thread = threading.Thread(
-                target=lambda : torch.save(payload, path.open('wb'), pickle_module=dill))
+                target=_save)
             self._saving_thread.start()
         else:
-            torch.save(payload, path.open('wb'), pickle_module=dill)
+            _save()
         return str(path.absolute())
     
     def get_checkpoint_path(self, tag='latest'):

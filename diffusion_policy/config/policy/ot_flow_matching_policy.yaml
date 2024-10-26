@@ -18,7 +18,7 @@ num_inference_steps: ${num_inference_steps}
 obs_as_local_cond: ${obs_as_local_cond}
 obs_as_global_cond: ${obs_as_global_cond}
 pred_action_steps_only: ${pred_action_steps_only}
-target_sigma_min: 0.0001
+target_sigma_min: 0.0
 
 noise_scheduler:
   sigma_min: 0
