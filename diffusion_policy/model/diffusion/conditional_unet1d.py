@@ -35,6 +35,7 @@ class ConditionalResidualBlock1D(nn.Module):
             cond_channels = out_channels * 2
         self.cond_predict_scale = cond_predict_scale
         self.out_channels = out_channels
+        self.cond_embed_dropout = nn.Dropout(dropout_p)
         self.cond_encoder = nn.Sequential(
             nn.Mish(),
             nn.Linear(cond_dim, cond_channels),
@@ -55,6 +56,7 @@ class ConditionalResidualBlock1D(nn.Module):
         '''
         out = self.blocks[0](x)
         embed = self.cond_encoder(cond)
+        embed = self.cond_embed_dropout(embed)
         if self.cond_predict_scale:
             embed = embed.reshape(
                 embed.shape[0], 2, self.out_channels, 1)
