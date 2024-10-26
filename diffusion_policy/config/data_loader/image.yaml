@@ -1,13 +1,13 @@
 dataloader:
-  batch_size: 64
-  num_workers: 8
+  batch_size: 128
+  num_workers: 6
   shuffle: True
   pin_memory: True
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 64
-  num_workers: 8
+  batch_size: 128
+  num_workers: 6
   shuffle: False
   pin_memory: True
   persistent_workers: True
