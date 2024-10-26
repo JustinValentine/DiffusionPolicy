@@ -1,4 +1,5 @@
 from typing import Union
+from scipy.spatial.transform import Rotation
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -11,7 +12,7 @@ class RotationTransformer:
     valid_reps = [
         'axis_angle',
         # 'euler_angles',
-        # 'quaternion',
+        'quaternion',
         'rotation_6d',
         # 'matrix'
     ]
@@ -100,6 +101,10 @@ class RotationTransformer:
             Rotation matrices as tensor of shape (..., 3, 3).
         """
         return RotationTransformer.quaternion_to_matrix(RotationTransformer.axis_angle_to_quaternion(axis_angle))
+
+    @staticmethod
+    def quaternion_to_rotation_6d(quaternions: torch.Tensor) -> torch.Tensor:
+        return RotationTransformer.matrix_to_rotation_6d(RotationTransformer.quaternion_to_matrix(quaternions))
 
     @staticmethod
     def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
