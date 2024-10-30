@@ -9,7 +9,10 @@ class RobomimicImageWrapper(gym.Env):
         env: EnvRobosuite,
         shape_meta: dict,
         init_state: Optional[np.ndarray]=None,
+        use_cached_rendering=True,
         render_obs_key='agentview_image',
+        render_hw=(256,256),
+        render_camera_name='agentview'
         ):
 
         self.env = env
@@ -18,8 +21,11 @@ class RobomimicImageWrapper(gym.Env):
         self.seed_state_map = dict()
         self._seed = None
         self.shape_meta = shape_meta
+        self.use_cached_rendering = use_cached_rendering
         self.render_cache = None
         self.has_reset_before = False
+        self.render_camera_name = render_camera_name
+        self.render_hw = render_hw
         
         # setup spaces
         action_shape = shape_meta['action']['shape']
@@ -45,7 +51,9 @@ class RobomimicImageWrapper(gym.Env):
                 # better range?
                 min_value, max_value = -1, 1
             else:
-                raise RuntimeError(f"Unsupported type {key}")
+                min_value, max_value = -1, 1
+                print("Using default max/min value for key", key)
+                # raise RuntimeError(f"Unsupported type {key}")
             
             this_space = spaces.Box(
                 low=min_value,
@@ -61,7 +69,8 @@ class RobomimicImageWrapper(gym.Env):
         if raw_obs is None:
             raw_obs = self.env.get_observation()
         
-        self.render_cache = raw_obs[self.render_obs_key]
+        if self.use_cached_rendering:
+            self.render_cache = raw_obs[self.render_obs_key]
 
         obs = dict()
         for key in self.observation_space.keys():
@@ -108,14 +117,19 @@ class RobomimicImageWrapper(gym.Env):
         raw_obs, reward, done, info = self.env.step(action)
         obs = self.get_observation(raw_obs)
         return obs, reward, done, False, info
-    
-    def render(self, mode='rgb_array'):
-        if self.render_cache is None:
-            raise RuntimeError('Must run reset or step before render.')
-        img = np.moveaxis(self.render_cache, 0, -1)
-        img = (img * 255).astype(np.uint8)
-        return img
 
+    def render(self, mode="rgb_array"):
+        if self.use_cached_rendering:
+            if self.render_cache is None:
+                raise RuntimeError('Must run reset or step before render.')
+            img = np.moveaxis(self.render_cache, 0, -1)
+            img = (img * 255).astype(np.uint8)
+            return img
+        else:
+            h, w = self.render_hw
+            return self.env.render(
+                mode=mode, height=h, width=w, camera_name=self.render_camera_name
+            )
 
 def test():
     import os

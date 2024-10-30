@@ -1,0 +1,47 @@
+# @package task
+name: ??
+shape_meta: ??
+task_name: ??
+dataset_type: ??
+dataset_path: ??
+abs_action: ??
+optional resize_shape: ??
+optional crop_shape: ??
+
+env_runner:
+  _target_: diffusion_policy.env_runner.robomimic_runner.RobomimicRunner
+  dataset_path: ${task.dataset_path}
+  shape_meta: ${task.shape_meta}
+  # costs 1GB per env
+  n_train: 6
+  n_train_vis: 2
+  train_start_idx: 0
+  n_test: 50
+  n_test_vis: 4
+  test_start_seed: 100000
+  # use python's eval function as resolver, single-quoted string as argument
+  max_steps: ${eval:'500 if "${task.dataset_type}" == "mh" else 400'}
+  n_obs_steps: ${n_obs_steps}
+  n_action_steps: ${n_action_steps}
+  render_obs_key: 'agentview_image'
+  fps: 10
+  crf: 22
+  past_action: ${past_action_visible}
+  abs_action: ${task.abs_action}
+  tqdm_interval_sec: 1.0
+  n_envs: 14
+
+dataset:
+  _target_: diffusion_policy.dataset.robomimic_replay_dataset.RobomimicReplayDataset
+  shape_meta: ${shape_meta}
+  dataset_path: ${task.dataset_path}
+  horizon: ${horizon}
+  pad_before: ${eval:'${n_obs_steps}-1+${n_latency_steps}'}
+  pad_after: ${eval:'${n_action_steps}-1'}
+  n_obs_steps: ${n_obs_steps}
+  abs_action: ${task.abs_action}
+  rotation_rep: 'rotation_6d'
+  use_legacy_normalizer: False
+  use_cache: False
+  seed: 42
+  val_ratio: 0.02

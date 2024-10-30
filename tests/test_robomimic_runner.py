@@ -5,7 +5,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)
 os.chdir(ROOT_DIR)
 
-from diffusion_policy.env_runner.robomimic_image_runner import RobomimicImageRunner
+from diffusion_policy.env_runner.robomimic_runner import RobomimicRunner
 
 def test():
     import os
@@ -19,7 +19,7 @@ def test():
     runner_cfg['n_train'] = 1
     runner_cfg['n_test'] = 1
     del runner_cfg['_target_']
-    runner = RobomimicImageRunner(
+    runner = RobomimicRunner(
         **runner_cfg, 
         output_dir='/tmp/test')
 

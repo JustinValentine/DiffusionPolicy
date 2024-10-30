@@ -1,2 +1,2 @@
 _target_: diffusion_policy.model.diffusion.passthrough_obs_encoder.PassThrough
-input_dim: ${task.obs_dim}
+input_shape: ${task.shape_meta.obs}

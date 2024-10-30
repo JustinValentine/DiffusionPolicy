@@ -13,18 +13,13 @@ defaults:
 name: train_ot_flow_matching_unet_lowdim
 _target_: diffusion_policy.workspace.train_diffusion_workspace.TrainDiffusionWorkspace
 
-shape_meta:
-  action:
-    shape: ["${task.action_dim}"]
+shape_meta: ${task.shape_meta}
 
 policy:
   inner_model:
     down_dims: [256, 512, 1024]
   target_sigma_min: 0.1
 
-obs_dim: ${task.obs_dim}
-action_dim: ${task.action_dim}
-keypoint_dim: ${task.keypoint_dim}
 task_name: ${task.name}
 exp_name: "default"
 

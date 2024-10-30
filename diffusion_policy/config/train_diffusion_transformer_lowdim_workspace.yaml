@@ -1,5 +1,5 @@
 defaults:
-  - task: blockpush_lowdim_seed
+  - task: can_lowdim_abs
   - ema: ema
   - monitoring
   - data_loader/lowdim@_global_
@@ -13,12 +13,8 @@ defaults:
 name: train_diffusion_transformer_lowdim
 _target_: diffusion_policy.workspace.train_diffusion_workspace.TrainDiffusionWorkspace
 
-shape_meta:
-  action:
-    shape: ["${task.action_dim}"]
+shape_meta: ${task.shape_meta}
 
-obs_dim: ${task.obs_dim}
-action_dim: ${task.action_dim}
 task_name: ${task.name}
 exp_name: "default"
 

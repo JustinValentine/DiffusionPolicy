@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 import torch
 import numpy as np
 import h5py
@@ -7,15 +7,12 @@ import zarr
 import os
 import shutil
 import copy
-import json
-import hashlib
 from filelock import FileLock
 from threadpoolctl import threadpool_limits
 import concurrent.futures
 import multiprocessing
-from omegaconf import OmegaConf
 from diffusion_policy.common.pytorch_util import dict_apply
-from diffusion_policy.dataset.base_dataset import BaseDataset, LinearNormalizer
+from diffusion_policy.dataset.base_dataset import BaseDataset
 from diffusion_policy.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 from diffusion_policy.codecs.imagecodecs_numcodecs import register_codecs, Jpeg2k
@@ -31,7 +28,7 @@ from diffusion_policy.common.normalize_util import (
 )
 register_codecs()
 
-class RobomimicReplayImageDataset(BaseDataset):
+class RobomimicReplayDataset(BaseDataset):
     def __init__(self,
             shape_meta: dict,
             dataset_path: str,
@@ -177,7 +174,9 @@ class RobomimicReplayImageDataset(BaseDataset):
             elif key.endswith('qpos'):
                 this_normalizer = get_range_normalizer_from_stat(stat)
             else:
-                raise RuntimeError('unsupported')
+                this_normalizer = get_range_normalizer_from_stat(stat)
+                print("Using default range normalize for key", key)
+                # raise RuntimeError('unsupported')
             normalizer_obs[key] = this_normalizer
 
         # image
