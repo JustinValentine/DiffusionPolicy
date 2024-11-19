@@ -214,12 +214,61 @@ class RobomimicReplayDataset(BaseDataset):
             obs_dict[key] = data[key][T_slice].astype(np.float32)
             del data[key]
 
+
         torch_data = {
             'obs': dict_apply(obs_dict, torch.from_numpy),
             'action': torch.from_numpy(data['action'].astype(np.float32))
         }
+
         return torch_data
 
+class RobomimicObsToAction:
+    def __init__(self, abs_action):
+        self.abs_action = abs_action
+
+    def __call__(self, obs: Dict[str, torch.Tensor]):
+
+        is_dual_arm = False
+        robot_keys = ["robot0"] # order must match action
+        for key in obs.keys():
+            if "robot1" in key:
+                is_dual_arm = True
+                robot_keys.append("robot1")
+                break
+
+        obs_action_keys = ["eef_pos", "eef_quat", "gripper_qpos"] # order must match action
+
+        flatten_obs = []
+        for robot_key in robot_keys:
+            for obs_key in obs_action_keys:
+                obs_key_full = f"{robot_key}_{obs_key}"
+                flatten_obs.append(obs[obs_key_full])
+        flatten_obs = torch.cat(flatten_obs, dim=-1)
+        if is_dual_arm:
+            flatten_obs = flatten_obs.reshape(-1, 2, 9)
+        if self.abs_action:
+            rotation_transformer = RotationTransformer(
+                from_rep='quaternion', to_rep='rotation_6d')
+        else:
+            rotation_transformer = RotationTransformer(
+                from_rep='quaternion', to_rep='axis_angle')
+
+        raw_obs_action = flatten_obs
+
+        pos = raw_obs_action[..., :3]
+        rot = raw_obs_action[..., 3:7]
+        gripper = raw_obs_action[..., 7, None]
+        rot = rotation_transformer.forward(rot)
+        raw_obs_action = torch.cat([
+            pos, rot, gripper
+        ], dim=-1)
+        if is_dual_arm:
+            if self.abs_action:
+                raw_obs_action = raw_obs_action.reshape(-1,20)
+            else:
+                raw_obs_action = raw_obs_action.reshape(-1,14)
+
+        return raw_obs_action
 
 def _convert_actions(raw_actions, abs_action, rotation_transformer):
     actions = raw_actions
@@ -242,6 +291,7 @@ def _convert_actions(raw_actions, abs_action, rotation_transformer):
             raw_actions = raw_actions.reshape(-1,20)
         actions = raw_actions
     return actions
+
 
 
 def _convert_robomimic_to_replay(store, shape_meta, dataset_path, abs_action, rotation_transformer, 

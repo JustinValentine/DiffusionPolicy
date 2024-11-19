@@ -149,7 +149,7 @@ class PowerModel:
                         ema_param.copy_(param.to(dtype=ema_param.dtype).data)
                     else:
                         ema_param.mul_(decay)
-                        ema_param.add_(param.data.to(dtype=ema_param.dtype), alpha=(1 - decay))
+                        ema_param.add_(param.data.to(dtype=ema_param.dtype).data, alpha=(1 - decay))
     
             for p_net, p_ema in zip(new_model.buffers(), ema.buffers()):
                 p_ema.copy_(p_net)
