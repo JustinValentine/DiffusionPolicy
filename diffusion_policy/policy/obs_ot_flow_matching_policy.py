@@ -15,7 +15,6 @@ from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.model.diffusion.mask_generator import LowdimMaskGenerator
 from diffusion_policy.policy.base_policy import BasePolicy
 
-
 class OTFlowMatchingPolicy(BasePolicy):
     def __init__(
         self,
@@ -25,6 +24,7 @@ class OTFlowMatchingPolicy(BasePolicy):
         inner_model: DictConfig,
         sampler: DictConfig,
         time_distribution: DictConfig,
+        obs_to_action: DictConfig,
         horizon: int,
         n_action_steps: int,
         n_obs_steps: int,
@@ -33,6 +33,7 @@ class OTFlowMatchingPolicy(BasePolicy):
         obs_as_local_cond=False,
         obs_as_global_cond=True,
         pred_action_steps_only=False,
+        map_from_last_obs=False,
         # parameters passed to step
         **kwargs,
     ):
@@ -55,6 +56,8 @@ class OTFlowMatchingPolicy(BasePolicy):
         obs_feature_dim = self.obs_encoder.output_shape()[0]
 
         self.ot_sampler = OTPlanSampler(method="sinkhorn", reg=1, normalize_cost=True)
+
+        self.obs_to_action = hydra.utils.instantiate(obs_to_action)
 
         # create diffusion model
         input_dim = action_dim + obs_feature_dim
@@ -94,6 +97,7 @@ class OTFlowMatchingPolicy(BasePolicy):
         self.obs_as_local_cond = obs_as_local_cond
         self.obs_as_global_cond = obs_as_global_cond
         self.pred_action_steps_only = pred_action_steps_only
+        self.map_from_last_obs = map_from_last_obs
         self.kwargs = kwargs
         self.eps = 1e-5
 
@@ -106,50 +110,34 @@ class OTFlowMatchingPolicy(BasePolicy):
         self,
         condition_data,
         condition_mask,
+        x0,
         local_cond=None,
         global_cond=None,
         generator=None,
-        x0=None,
+        collector=None,
         # keyword arguments to scheduler.step
         **kwargs,
     ):
-        model = self.model
         batch_size = condition_data.shape[0]
-
-        # trajectory = torch.randn(
-        #     size=condition_data.shape,
-        #     dtype=condition_data.dtype,
-        #     device=condition_data.device,
-        #     generator=generator,
-        # )
 
         trajectory = x0
 
-        node = NeuralODE(
-            torch_wrapper(self.model, local_cond=local_cond, global_cond=global_cond),
-            solver="dopri5",
-            sensitivity="adjoint",
-            atol=1e-4,
-            rtol=1e-4,
-        )
+        times = self.noise_scheduler.get_sigmas(self.num_inference_steps).flip(dims=[0]) # reverse so time starts at 0.
 
-        trajectory = node.trajectory(trajectory, t_span=torch.linspace(0, 1, 2))
-        trajectory = trajectory[-1]
-
-        # times = self.noise_scheduler.get_sigmas(self.num_inference_steps).flip(dims=[0]) # reverse so time starts at 0.
-        #
-        # for t in range(self.num_inference_steps - 1):
-        #     t0 = times[t]
-        #     t_batch = t0 * torch.ones(batch_size, device=condition_data.device)
-        #     pred = self.model(trajectory, t_batch, local_cond=local_cond, global_cond=global_cond)
-        #     dt = times[t + 1] - t0
-        #     trajectory = trajectory + pred * dt
-        # trajectory[condition_mask] = condition_data[condition_mask]
+        for t in range(self.num_inference_steps - 1):
+            t0 = times[t]
+            t_batch = t0 * torch.ones(batch_size, device=condition_data.device)
+            pred = self.model(trajectory, t_batch, local_cond=local_cond, global_cond=global_cond)
+            if collector:
+                collector.add(pred, trajectory, t0)
+            dt = times[t + 1] - t0
+            trajectory = trajectory + pred * dt
+        trajectory[condition_mask] = condition_data[condition_mask]
 
         return trajectory
 
     def predict_action(
-        self, obs_dict: Dict[str, torch.Tensor]
+        self, obs_dict: Dict[str, torch.Tensor], collector=None
     ) -> Dict[str, torch.Tensor]:
         """
         obs_dict: must include "obs" key
@@ -158,7 +146,7 @@ class OTFlowMatchingPolicy(BasePolicy):
 
         assert "obs" in obs_dict
         assert "past_action" not in obs_dict  # not implemented yet
-        n_obs_action = self.get_obs_action(obs_dict)
+        
         # normalize input
         nobs = self.normalizer.normalize(obs_dict)["obs"]
         if isinstance(nobs, dict):
@@ -174,6 +162,15 @@ class OTFlowMatchingPolicy(BasePolicy):
         # build input
         device = self.device
         dtype = self.dtype
+
+        if self.map_from_last_obs:
+            x0 = self.get_obs_action(obs_dict)
+        else:
+            x0 = torch.randn(
+                size=(B, T, Da),
+                dtype=dtype,
+                device=device,
+            )
 
         # handle different ways of passing observation
         local_cond = None
@@ -212,7 +209,8 @@ class OTFlowMatchingPolicy(BasePolicy):
             cond_mask,
             local_cond=local_cond,
             global_cond=global_cond,
-            x0=n_obs_action,
+            x0=x0,
+            collector=collector,
             **self.kwargs,
         )
 
@@ -232,22 +230,22 @@ class OTFlowMatchingPolicy(BasePolicy):
     def set_normalizer(self, normalizer: LinearNormalizer):
         self.normalizer.load_state_dict(normalizer.state_dict())
 
-    def psi_t(self, x_0: torch.Tensor, x_1: torch.Tensor, t: torch.Tensor):
+    def compute_xt(self, x_0: torch.Tensor, x_1: torch.Tensor, t: torch.Tensor):
         mu_t = t * x_1 + (1 - t) * x_0
-        epsilon = torch.randn_like(x_0)
-        return mu_t + self.sigma_min * epsilon
+        epsilon = torch.randn_like(x_0) * (1 - t) * self.sigma_min
+        x_t = mu_t
+        # x_t = mu_t + epsilon
+        return x_t
 
     def get_obs_action(self, batch: Dict[str, torch.Tensor]):
-        batch_size = batch['obs']['robot0_eef_pos'].shape[0]
-        rt = RotationTransformer(
-            from_rep='quaternion', to_rep='rotation_6d')
-        pos = batch["obs"]["robot0_eef_pos"][:, -1]
-        rot = rt.forward(batch["obs"]["robot0_eef_quat"][:, -1])
-        pos = pos.unsqueeze(1)
-        rot = rot.unsqueeze(1)
-        gripper = torch.rand(size=(batch_size, 1, 1), device=self.device)*2 - 1 # -1 or 1
-        obs_action = {"action": torch.cat([pos, rot, gripper], dim=-1)}
+
+        last_obs = dict_apply(batch["obs"], lambda x: x[:, -1, :])
+
+        obs_action = self.obs_to_action(last_obs)
+        obs_action = {"action": obs_action}
         n_obs_action = self.normalizer.normalize(obs_action)["action"]
+        batch_size = n_obs_action.shape[0]
+        n_obs_action = n_obs_action.unsqueeze(1)
         n_obs_action = n_obs_action.expand((batch_size, self.horizon, -1))
         return n_obs_action
 
@@ -257,7 +255,6 @@ class OTFlowMatchingPolicy(BasePolicy):
         assert "valid_mask" not in batch
         
         n_obs_action = self.get_obs_action(batch)
-
         nbatch = self.normalizer.normalize(batch)
         nobs = nbatch["obs"]
         nactions = nbatch["action"]
@@ -270,7 +267,7 @@ class OTFlowMatchingPolicy(BasePolicy):
         trajectory = nactions
         cond_data = trajectory
         if self.obs_as_global_cond:
-            # reshape B, T, ... to B*T
+            # reshape B, T, ... to B*t
             this_nobs = dict_apply(nobs, lambda x: x[:, : self.n_obs_steps, ...])
             global_cond = self.obs_encoder(this_nobs)
         else:
@@ -278,44 +275,56 @@ class OTFlowMatchingPolicy(BasePolicy):
             # TODO: this will not work with the reshape, same goes for local_cond
             this_nobs = dict_apply(nobs, lambda x: x.reshape(-1, *x.shape[2:]))
             nobs_features = self.obs_encoder(this_nobs)
-            # reshape back to B, T, Ddsfasdfo
+            # reshape back to B, T, D
             nobs_features = nobs_features.reshape(batch_size, horizon, -1)
             cond_data = torch.cat([nactions, nobs_features], dim=-1)
             trajectory = cond_data.detach()
 
-        # generate impainting masksdjfasdf
+        # generate impainting masks
         condition_mask = self.mask_generator(trajectory.shape)
-
+        
+        # TODO: add uniform time distribution
         # t = self.time_distribution.sample(batch_size)
         t = torch.rand(batch_size, device=self.device)
         t = t[:, None, None].expand(nactions.shape)
 
-        # x_0 = torch.randn_like(nactions)
 
-        x_0 = n_obs_action # use last observation
+        if self.map_from_last_obs:
+            x_0 = n_obs_action
+            x_0 = x_0 + torch.randn_like(x_0) * self.sigma_min
+        else:
+            x_0 = torch.randn_like(nactions)
+
         x_1 = nactions
-
-        # x_0, x_1, _, global_cond = self.ot_sampler.sample_plan_with_labels(
-        #     x_0, nactions, y1=global_cond
-        # )
 
         # compute loss mask
         loss_mask = ~condition_mask
 
-        # Predict the noise residual
+        x_t = self.compute_xt(x_0, x_1, t)
+
         v_t = self.model(
-            self.psi_t(x_0, x_1, t),
+            x_t,
             t[:, 0, 0],
             local_cond=local_cond,
             global_cond=global_cond,
         )
+        # u_t = (x_1 - x_t) / (1 - t + 1e-3)
         u_t = x_1 - x_0
+        scale = 1 / torch.arange(1, horizon + 1, device=self.device)
+        scale = scale.reshape(1, -1, 1).expand_as(v_t)
+        scaled_vel = v_t * scale
+
+        accel_loss = torch.mean((scaled_vel[:, 1:, :3] - scaled_vel[:, :-1, :3]) ** 2)
+
 
         loss = F.mse_loss(v_t, u_t, reduction="none")
         loss = loss * loss_mask.type(loss.dtype)
         loss = reduce(loss, "b ... -> b (...)", "mean")
         loss = loss.mean()
-        return loss
+
+        # loss = loss + 0.1 * accel_loss
+
+        return loss 
 
 
 class torch_wrapper(torch.nn.Module):

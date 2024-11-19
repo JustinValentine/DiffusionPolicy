@@ -94,6 +94,7 @@ class DiffusionPolicy(BasePolicy):
         local_cond=None,
         global_cond=None,
         generator=None,
+        collector=None,
         # keyword arguments to scheduler.step
         **kwargs,
     ):
@@ -119,10 +120,15 @@ class DiffusionPolicy(BasePolicy):
                 trajectory, t, local_cond=local_cond, global_cond=global_cond
             )
 
+            if collector:
+                collector.add(model_output, trajectory, t)
+
             # 3. compute previous image: x_t -> x_t-1
             trajectory = scheduler.step(
                 model_output, t, trajectory, generator=generator, **kwargs
             ).prev_sample
+            if collector:
+                collector.add(model_output, trajectory, t)
 
         # finally make sure conditioning is enforced
         trajectory[condition_mask] = condition_data[condition_mask]
@@ -130,7 +136,7 @@ class DiffusionPolicy(BasePolicy):
         return trajectory
 
     def predict_action(
-        self, obs_dict: Dict[str, torch.Tensor]
+        self, obs_dict: Dict[str, torch.Tensor], collector=None
     ) -> Dict[str, torch.Tensor]:
         """
         obs_dict: must include "obs" key
@@ -192,6 +198,7 @@ class DiffusionPolicy(BasePolicy):
             cond_mask,
             local_cond=local_cond,
             global_cond=global_cond,
+            collector=collector,
             **self.kwargs,
         )
 
