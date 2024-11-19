@@ -1,15 +1,16 @@
-import click
-from pathlib import Path
-import numpy as np
-import re
-import hydra
-from diffusion_policy.workspace.base_workspace import BaseWorkspace
-import torch
-import dill
 import copy
+import re
+from pathlib import Path
+
+import click
+import dill
+import hydra
+import numpy as np
+import torch
 import wandb
-from bayes_opt import BayesianOptimization
-from bayes_opt import UtilityFunction
+
+from diffusion_policy.workspace.base_workspace import BaseWorkspace
+
 
 def parse_std_list(s):
     if isinstance(s, list):
@@ -91,8 +92,17 @@ class EMARunner():
         self.wandb_run.define_metric("std")
         self.wandb_run.define_metric("ema/*", step_metric="std")
 
-    def __call__(self, std):
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda:0')
+        elif torch.backends.mps.is_available():
+            self.device = torch.device('mps')
+        else:
+            self.device = torch.device('cpu')
 
+    def recon(self, std):
+        """
+        Reconstruct the workspace ema in place
+        """
         out_stds = np.array([std])
 
         coef = solve_posthoc_coefficients(self.steps, self.in_stds, self.latest, out_stds) 
@@ -103,36 +113,42 @@ class EMARunner():
             p.zero_()
 
 
-        out.to(torch.device('cuda:0'))
+        out.to(self.device)
         for params, c in zip(self.sorted_params, coef):
             step, std_in, file = params
             checkpoint = self.checkpoint_dir / file
             with open(checkpoint, 'rb') as f:
                 payload = torch.load(f, pickle_module=dill)
             
-            self.workspace.ema.load_state_dict(payload['state_dicts']['ema'])
             self.workspace.load_payload(payload, exclude_keys=['_output_dir'])
             cfg = payload['cfg']
             del payload
 
             idx = cfg.ema.stds.index(std_in)
             ema = self.workspace.ema.get()[idx]
-            ema.to(torch.device('cuda:0'))
+            ema.to(self.device)
             print("including", step, std_in, file, c)
-            c = torch.tensor(c, device='cuda:0')
+            c = torch.from_numpy(c).to(self.device, dtype=torch.float32)
             with torch.no_grad():
-                for p, ema_p in zip(out.parameters(), ema.parameters()):
-                    p += ema_p * c
+                for out_p, ema_p in zip(out.parameters(), ema.parameters()):
+                    out_p += ema_p * c
 
-        new_state_dict = {"stds": out_stds, 'averaged_models': [out.state_dict() for i in range(2)]}
+        for p_net, out_p in zip(self.last_model.buffers(), out.buffers()):
+            out_p.copy_(p_net)
+
+        new_state_dict = {"stds": out_stds, "optimization_step": self.latest[0], 'averaged_models': [out.state_dict() for i in range(2)]}
         
         self.workspace.ema.load_state_dict(new_state_dict)
 
-        policy = self.workspace.ema.get()[0]
-        for p_net, p_ema in zip(self.last_model.buffers(), policy.buffers()):
-            p_ema.copy_(p_net)
+    def __call__(self, std):
 
-        policy.to(torch.device('cuda:0'))
+        self.recon(std)
+
+        policy = self.workspace.ema.get()[0]
+
+        policy.set_normalizer(self.last_model.normalizer)
+
+        policy.to(self.device)
         policy.eval()
 
         env_runner = hydra.utils.instantiate(
@@ -149,8 +165,9 @@ class EMARunner():
 
 @click.command()
 @click.option('-w', '--workspace_dir', required=True)
-@click.option('-n', '--n_iter', default=10)
-def main(workspace_dir, n_iter):
+@click.option('--outstd', 'out_std', help='List of desired relative standard deviations', metavar='LIST',type=parse_std_list, default=[])
+@click.option("--outdir", "out_dir", required=True)
+def main(workspace_dir, out_std, out_dir):
     checkpoint_dir = Path(workspace_dir) / "checkpoints"
 
     checkpoint = checkpoint_dir / "latest.ckpt"
@@ -171,8 +188,8 @@ def main(workspace_dir, n_iter):
         match = re.match(r"epoch_(\d+).ckpt", file.name)
         if not match:
             continue
-        checkpoint = checkpoint_dir / file
-        with open(checkpoint, 'rb') as f:
+        # checkpoint = checkpoint_dir / file
+        with open(file, 'rb') as f:
             payload = torch.load(f, pickle_module=dill)
         cfg = payload['cfg']
         global_step = dill.loads(payload['pickles']['global_step'])
@@ -194,21 +211,19 @@ def main(workspace_dir, n_iter):
 
     ema_runner = EMARunner(params, workspace, wandb_run, checkpoint_dir)
 
-    pbounds = {'std': (0.01, 0.25)}
-    optimizer = BayesianOptimization(
-        f=ema_runner,
-        pbounds=pbounds,
-        verbose=2, # verbose = 1 prints only when a maximum is observed, verbose = 0 is silent
-        random_state=1,
-    )
-    optimizer.set_gp_params(alpha=1e-3)
-    acquisition = UtilityFunction(kind="ucb", kappa=8, xi=None)
-    optimizer.maximize(
-        init_points=3,
-        n_iter=n_iter,
-        acquisition_function=acquisition,
-    )
-    print(optimizer.max)
+    max_score = 0
+    max_std = 0
+    for std in out_std:
+        res = ema_runner(std)
+        print("std:", std, "score:", res)
+        if res > max_score:
+            max_score = res
+            max_std = std
+
+    ema_runner.recon(max_std)
+    out_dir = Path(out_dir)
+    out_path = out_dir / f"best_std_{max_std:0.3f}.ckpt"
+    ema_runner.workspace.save_checkpoint(path=out_path)
     
 
 if __name__ == '__main__':
