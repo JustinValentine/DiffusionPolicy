@@ -74,6 +74,7 @@ class TrainDiffusionWorkspace(BaseWorkspace):
             cfg.checkpoint.save_last_ckpt = True
             cfg.checkpoint.save_last_snapshot = False
             cfg.checkpoint.topk.k = 1
+            cfg.logging.mode = "offline"
 
             if "n_train" in cfg.task.env_runner.keys():
                 cfg.task.env_runner.n_train = 1
@@ -108,10 +109,14 @@ class TrainDiffusionWorkspace(BaseWorkspace):
             if lastest_ckpt_path.is_file():
                 print(f"Resuming from checkpoint {lastest_ckpt_path}")
                 self.load_checkpoint(path=lastest_ckpt_path)
+                if cfg.logging.resume:
+                     cfg.logging.id = self.cfg.logging.id
 
         # device transfer
         device = torch.device(cfg.training.device)
         self.model.to(device)
+        # self.model = torch.compile(self.model, mode="reduce-overhead")
+        # self.ema = hydra.utils.instantiate(cfg.ema, model=self.model)
         self.ema.to(device)
 
         # configure lr scheduler
@@ -144,11 +149,14 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                 "output_dir": self.output_dir,
             }
         )
+        run_id = wandb.run.id
+        self.cfg.logging.id = run_id
 
         optimizer_to(self.optimizer, device)
 
         # save batch for sampling
         train_sampling_batch = None
+        
 
         # training loop
         log_path = os.path.join(self.output_dir, "logs.json.txt")
@@ -163,7 +171,7 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                     self.model.obs_encoder.eval()
                     self.model.obs_encoder.requires_grad_(False)
 
-                train_losses = list()
+                self.model.train()
                 with tqdm.tqdm(
                     train_dataloader,
                     desc=f"Training epoch {self.epoch}",
@@ -199,7 +207,6 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                         # logging
                         raw_loss_cpu = raw_loss.item()
                         tepoch.set_postfix(loss=raw_loss_cpu, refresh=False)
-                        train_losses.append(raw_loss_cpu)
                         step_log = {
                             "train_loss": raw_loss_cpu,
                             "global_step": self.global_step,
@@ -219,11 +226,6 @@ class TrainDiffusionWorkspace(BaseWorkspace):
                         ):
                             break
 
-                # at the end of each epoch
-                # replace train_loss with epoch average
-                train_loss = np.mean(train_losses)
-                step_log["train_loss"] = train_loss
-
                 # ========= eval for this epoch ==========
                 policy = self.model
                 if cfg.training.use_ema:
@@ -242,6 +244,7 @@ class TrainDiffusionWorkspace(BaseWorkspace):
 
                 # run validation
                 if (self.epoch % cfg.training.val_every) == 0:
+                    self.model.eval()
                     with torch.no_grad():
                         val_losses = list()
                         with tqdm.tqdm(
