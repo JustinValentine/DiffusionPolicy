@@ -1,0 +1,122 @@
+absl_py==2.1.0+computecanada
+aiohappyeyeballs==2.4.3+computecanada
+aiohttp==3.10.9+computecanada
+aiosignal==1.3.1+computecanada
+anndata==0.10.7+computecanada
+antlr4_python3_runtime==4.9.3+computecanada
+array_api_compat==1.6+computecanada
+asciitree==0.3.3+computecanada
+attrs==24.2.0+computecanada
+av==11.0.0+computecanada
+certifi==2024.8.30+computecanada
+charset_normalizer==3.4.0+computecanada
+clean-fid @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/clean_fid-0.1.35-py3-none-any.whl#sha256=757cf49d75debe9b07ab14955fe59c845a296deaf0616153b40c5e75b3cf87fb
+click==8.1.7+computecanada
+cloudpickle==3.1.0+computecanada
+Cython==3.0.11+computecanada
+diffusers==0.25.0+computecanada
+dill==0.3.9+computecanada
+docker-pycreds==0.4.0+computecanada
+egl-probe @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/egl_probe-1.0.2-cp311-cp311-linux_x86_64.whl#sha256=f4dea22d4cb53664dc9ac7d7d66e0d860ab5b4cc743d38eb01d18e30f9e1fca5
+einops==0.8.0+computecanada
+etils==1.9.4+computecanada
+evdev @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/evdev-1.7.1-cp311-cp311-linux_x86_64.whl#sha256=d8f5b7468b0b4fd2860d5dccff825b61c2bc1977f7746b03bfde2d473c7e8037
+Farama_Notifications==0.0.4+computecanada
+fasteners==0.19+computecanada
+filelock==3.16.1+computecanada
+frozenlist==1.4.1+computecanada
+fsspec==2024.9.0+computecanada
+fvcore==0.1.5.post20220512+computecanada
+gitdb==4.0.11+computecanada
+GitPython==3.1.43+computecanada
+grpcio==1.67.0+computecanada
+gym_notices==0.0.8+computecanada
+gymnasium @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/gymnasium-1.0.0-py3-none-any.whl#sha256=b6f40e1e24c5bd419361e1a5b86a9117d2499baecc3a660d44dfff4c465393ad
+h5py==3.12.0+computecanada
+huggingface_hub==0.25.0+computecanada
+hydra_core==1.3.2+computecanada
+idna==3.10+computecanada
+imagecodecs==2024.6.1+computecanada
+imageio==2.36.0+computecanada
+imageio-ffmpeg==0.4.2+computecanada
+importlib_metadata==8.5.0+computecanada
+importlib_resources==6.0.1+computecanada
+iopath==0.1.9+computecanada
+ipywidgets==8.1.3+computecanada
+jax==0.4.30+computecanada
+jaxlib==0.4.28+cuda12.cudnn89.computecanada
+jinja2==3.1.4+computecanada
+joblib==1.4.2+computecanada
+jupyterlab_widgets==3.0.11+computecanada
+legacy_api_wrap==1.4+computecanada
+lightning_bolts==0.4.0+computecanada
+lightning_utilities==0.11.8+computecanada
+llvmlite==0.43.0+computecanada
+Markdown==3.7+computecanada
+MarkupSafe==2.1.5+computecanada
+ml_dtypes==0.4.0+computecanada
+multidict==6.1.0+computecanada
+natsort==8.4.0+computecanada
+networkx==3.4.1+computecanada
+numba==0.60.0+computecanada
+numcodecs==0.13.1+computecanada
+omegaconf==2.3.0+computecanada
+opt_einsum==3.4.0+computecanada
+pastel==0.2.1+computecanada
+patsy==0.5.6+computecanada
+Pillow_SIMD==9.5.0.post2+computecanada
+poethepoet @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/poethepoet-0.10.0-py3-none-any.whl#sha256=6fb3021603d4421c6fcc40072bbcf150a6c52ef70ff4d3be089b8b04e015ef5a
+portalocker==2.10.1+computecanada
+POT==0.9.0+computecanada
+propcache==0.2.0+computecanada
+protobuf==5.27.2+computecanada
+pynndescent==0.5.12+computecanada
+pynput @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/pynput-1.7.7-py2.py3-none-any.whl#sha256=afc43f651684c98818de048abc76adf9f2d3d797083cb07c1f82be764a2d44cb
+PyOpenGL==3.1.7+computecanada
+PyOpenGL-accelerate @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/PyOpenGL_accelerate-3.1.7-cp311-cp311-linux_x86_64.whl#sha256=d1e987e94452cf95f24bce30fd30c822064704ceb181ab92a19b0f291b71ae8b
+python-xlib @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/python_xlib-0.33-py2.py3-none-any.whl#sha256=c3534038d42e0df2f1392a1b30a15a4ff5fdc2b86cfa94f072bf11b10a164398
+pytorch3d==0.7.5+computecanada
+pytorch_lightning==2.4.0+computecanada
+PyYAML==6.0.1+computecanada
+regex==2024.9.11+computecanada
+requests==2.32.3+computecanada
+robomimic @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/robomimic-0.3.0-py3-none-any.whl#sha256=6c5f470c171077eb4b099744f937ecf10206cfa85650b8c1f8b17cbff8d6269e
+robosuite @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/robosuite-1.4.1-py3-none-any.whl#sha256=62587cd5888d9d3d813f3ffcc7017f6f77efa618952527a0b9bb139ffd0a3741
+safetensors==0.4.5+computecanada
+scanpy==1.10.1+computecanada
+scikit_learn==1.5.0+computecanada
+scprep==1.1.0+computecanada
+seaborn==0.13.2+computecanada
+sentry_sdk==2.2.1+computecanada
+session_info==1.0.0+computecanada
+setproctitle==1.3.2+computecanada
+smmap==5.0.1+computecanada
+statsmodels==0.14.3+computecanada
+stdlib_list==0.10.0+computecanada
+tabulate==0.9.0+computecanada
+tensorboard==2.18.0+computecanada
+tensorboard_data_server==0.7.2+computecanada
+tensorboardX==2.6.2.2+computecanada
+termcolor==2.4.0+computecanada
+threadpoolctl==3.5.0+computecanada
+tomlkit==0.12.3+computecanada
+torch==2.1.2+computecanada
+torchcde @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/torchcde-0.2.5-py3-none-any.whl#sha256=90ad5943d74d601400476a3cdaf6ea7aabd3967033ba6d513bc8f6a93f982ffd
+torchcfm @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/torchcfm-1.0.5-py3-none-any.whl#sha256=36babf08bf94e70cba6b4caf3dc3d58b5d8860c08562a089214ff18161510a41
+torchdiffeq @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/torchdiffeq-0.2.4-py3-none-any.whl#sha256=70b7e5afb373af0aded660588aaeb63c2a56c7064ae7c3037ffc12a1bad16b28
+torchdyn @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/torchdyn-1.0.6-py3-none-any.whl#sha256=1699db47296b14756172cd26b814bd49ce702420f8c4b049c8ae60b4ae6ac88d
+torchmetrics==1.4.3+computecanada
+torchsde @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/torchsde-0.2.6-py3-none-any.whl#sha256=19bf7ff02eec7e8e46ba1cdb4aa0f9db1c51d492524a16975234b467f7fc463b
+torchvision==0.16.2+computecanada
+tqdm==4.66.5+computecanada
+trampoline @ file:///project/6015352/dmiller/DiffusionPolicy/py311_downloaded_wheels/trampoline-0.1.2-py3-none-any.whl#sha256=36cc9a4ff9811843d177fc0e0740efbd7da39eadfe6e50c9e2937cbc06d899d9
+trimesh==4.4.9+computecanada
+umap_learn==0.5.6+computecanada
+urllib3==2.2.3+computecanada
+wandb==0.18.0+computecanada
+werkzeug==3.0.4+computecanada
+widgetsnbextension==4.0.11+computecanada
+yacs==0.1.8+computecanada
+yarl==1.14.0+computecanada
+zarr==2.18.3+computecanada
+zipp==3.20.2+computecanada
