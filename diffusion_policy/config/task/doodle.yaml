@@ -1,0 +1,44 @@
+defaults:
+
+  - _self_
+
+name: square_image
+
+shape_meta:
+  # acceptable types: rgb, low_dim
+  obs:
+    class_quat:
+      shape: [300]
+      type: lowdim
+    on_paper_quat:
+      shape: [2]
+      type: lowdim
+    termination_quat:
+      shape: [2]
+      type: lowdim
+  action: 
+    shape: [5]
+
+task_name: square
+dataset_type: ph
+dataset_path: data/doodle/data_train.csv
+abs_action: False
+resize_shape: null
+
+env_runner:
+  _target_: diffusion_policy.env_runner.dummy_runner.DummyRunner
+
+dataset:
+  _target_: diffusion_policy.dataset.doodle_dataset.DoodleDataset
+  shape_meta: ${shape_meta}
+  dataset_path: ${task.dataset_path}
+  horizon: ${horizon}
+  pad_before: ${eval:'${n_obs_steps}-1+${n_latency_steps}'}
+  pad_after: ${eval:'${n_action_steps}-1'}
+  n_obs_steps: ${n_obs_steps}
+  abs_action: ${task.abs_action}
+  use_legacy_normalizer: False
+  use_cache: False
+  seed: 42
+  val_ratio: 0.02
+
