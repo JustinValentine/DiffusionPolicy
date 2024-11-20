@@ -19,6 +19,7 @@ policy:
   inner_model:
     down_dims: [256, 512, 1024]
   target_sigma_min: 0.1
+  map_from_last_obs: True
 
 task_name: ${task.name}
 exp_name: "default"
