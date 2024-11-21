@@ -138,30 +138,37 @@ class DoodleDataset(BaseDataset):
 
         # action
         stat = array_to_stats(self.replay_buffer['action'])
-        if self.abs_action:
-            if stat['mean'].shape[-1] > 10:
-                # dual arm
-                this_normalizer = robomimic_abs_action_only_dual_arm_normalizer_from_stat(stat)
-            else:
-                this_normalizer = robomimic_abs_action_only_normalizer_from_stat(stat)
+        # if self.abs_action:
+        #     if stat['mean'].shape[-1] > 10:
+        #         # dual arm
+        #         this_normalizer = robomimic_abs_action_only_dual_arm_normalizer_from_stat(stat)
+        #     else:
+        #         this_normalizer = robomimic_abs_action_only_normalizer_from_stat(stat)
             
-            if self.use_legacy_normalizer:
-                this_normalizer = normalizer_from_stat(stat)
-        else:
-            # already normalized
-            this_normalizer = get_identity_normalizer_from_stat(stat)
+        #     if self.use_legacy_normalizer:
+        #         this_normalizer = normalizer_from_stat(stat)
+        # else:
+        #     # already normalized
+        #     this_normalizer = get_identity_normalizer_from_stat(stat)
+
+        print(self.replay_buffer["action"].dtype)
+
+        this_normalizer = get_range_normalizer_from_stat(stat)
+
         normalizer['action'] = this_normalizer
 
         # obs
         normalizer_obs = LinearNormalizer()
+        print("low keys", self.lowdim_keys)
         for key in self.lowdim_keys:
-            stat = array_to_stats(self.replay_buffer[key])
+            print(self.replay_buffer[key].shape)
 
             if key.endswith('pos'):
                 this_normalizer = get_range_normalizer_from_stat(stat)
             elif key.endswith('quat'):
                 # quaternion is in [-1,1] already
-                this_normalizer = get_identity_normalizer_from_stat(stat)
+                # stat = array_to_stats(self.replay_buffer[key])
+                this_normalizer = SingleFieldLinearNormalizer.create_identity()
             elif key.endswith('qpos'):
                 this_normalizer = get_range_normalizer_from_stat(stat)
             else:
@@ -171,6 +178,7 @@ class DoodleDataset(BaseDataset):
             normalizer_obs[key] = this_normalizer
 
         normalizer['obs'] = normalizer_obs
+        print(normalizer['obs'])
         return normalizer
 
     def get_all_actions(self) -> torch.Tensor:
@@ -200,20 +208,23 @@ class DoodleDataset(BaseDataset):
             'action': torch.from_numpy(data['action'].astype(np.float32))
         }
 
+        torch_data = dict_apply(torch_data, lambda x: x.to(torch.float32))
+
         return torch_data
 
 
 def _convert_doodle_to_replay():
     replay_buffer = ReplayBuffer.create_empty_numpy()
 
-    with open('data/doodle/class_index.json', 'r') as f:
+    with open('/home/thor/DiffusionPolicy/data/doodle/class_index.json', 'r') as f:
         class_to_index = json.load(f)
 
     # Process the data
     max_trajectory_lenght = 100
 
-    with open('data/doodle/data_train.csv', 'r') as f:
+    with open('/home/thor/DiffusionPolicy/data/doodle/data_train.csv', 'r') as f:
         reader = csv.reader(f)
+        i = 0
         for row in reader:
             class_name = row[0]
             trajectories_str = row[1]
@@ -249,19 +260,24 @@ def _convert_doodle_to_replay():
                 action_point = [x, y, *on_paper_one_hot, p2]
                 action.append(action_point)
 
-            obs = {
-                'class_quat': class_quat,
-                'on_paper_quat': on_paper_quat,
-                'termination_quat': termination_quat
-            }
+            # Convert lists to NumPy arrays
+            class_quat = np.array(class_quat, dtype=bool)
+            on_paper_quat = np.array(on_paper_quat, dtype=bool)
+            termination_quat = np.array(termination_quat, dtype=bool)
+            action = np.array(action, dtype=float)
 
             data = {
-                'obs': obs,
+                'class_quat': class_quat,
+                'on_paper_quat': on_paper_quat,
+                'termination_quat': termination_quat,
                 'action': action
             }
 
+            print(replay_buffer.n_episodes)
             replay_buffer.add_episode(data)
+            i += 1
 
+    print('fin')
     return replay_buffer
 
 def normalizer_from_stat(stat):
