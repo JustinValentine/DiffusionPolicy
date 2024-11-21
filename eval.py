@@ -45,31 +45,12 @@ def main(checkpoint, output_dir, device):
     policy.to(device)
     policy.eval()
     
-    n_runs = 10
-    cfg.task.env_runner['n_test'] = n_runs
-    cfg.task.env_runner['n_test_vis'] = n_runs
-    cfg.task.env_runner['n_train'] = 0
-    cfg.task.env_runner['test_start_seed'] = 49
-    cfg.task.env_runner['n_envs'] = None
-    with open_dict(cfg.task.env_runner):
-        cfg.task.env_runner['render_args'] = {"height": 256, "width": 256}
-        # cfg.task.env_runner['mode'] = 'human'
-    
-    # run eval
-    env_runner = hydra.utils.instantiate(
-        cfg.task.env_runner,
-        output_dir=output_dir)
-    runner_log = env_runner.run(policy)
-    
-    # dump log to json
-    json_log = dict()
-    for key, value in runner_log.items():
-        if isinstance(value, wandb.sdk.data_types.video.Video):
-            json_log[key] = value._path
-        else:
-            json_log[key] = value
-    out_path = os.path.join(output_dir, 'eval_log.json')
-    json.dump(json_log, open(out_path, 'w'), indent=2, sort_keys=True)
+    n_runs = 10    
+
+    gen_doodle = policy.predict_action()
+
+    print(gen_doodle)
+
 
 if __name__ == '__main__':
     main()

@@ -8,14 +8,14 @@ shape_meta:
   # acceptable types: rgb, low_dim
   obs:
     class_quat:
-      shape: [300]
-      type: lowdim
+      shape: [340]
+      type: low_dim
     on_paper_quat:
       shape: [2]
-      type: lowdim
+      type: low_dim
     termination_quat:
-      shape: [2]
-      type: lowdim
+      shape: [1]
+      type: low_dim
   action: 
     shape: [5]
 
@@ -38,7 +38,6 @@ dataset:
   n_obs_steps: ${n_obs_steps}
   abs_action: ${task.abs_action}
   use_legacy_normalizer: False
-  use_cache: False
+  use_cache: True
   seed: 42
   val_ratio: 0.02
-

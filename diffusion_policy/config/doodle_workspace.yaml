@@ -2,24 +2,29 @@ defaults:
   - task: doodle
   - ema: ema
   - monitoring
-  - data_loader/image@_global_
+  - data_loader/lowdim@_global_
   - training: training
   - optimizer: adam
   - policy: diffusion_policy
   - override policy/inner_model: unet
-  - override policy/obs_encoder: passthrough
+  - override policy/obs_encoder: flatten_time
   - _self_
 
 name: doodle
 _target_: diffusion_policy.workspace.train_workspace.TrainWorkspace
 
+
+policy:
+  inner_model:
+    down_dims: [256, 512, 1024]
+
 task_name: ${task.name}
 shape_meta: ${task.shape_meta}
 exp_name: "default"
 
-horizon: 16
-n_obs_steps: 2
-n_action_steps: 16
+horizon: 100
+n_obs_steps: 1
+n_action_steps: 100
 n_latency_steps: 0
 dataset_obs_steps: ${n_obs_steps}
 past_action_visible: False
