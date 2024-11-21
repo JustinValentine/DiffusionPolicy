@@ -33,16 +33,17 @@ def main(file_path):
     
     # Iterate through the keys to plot each one
     for key, value in data_dict.items():
-        if key == "test/mean_score":
-            plt.figure(figsize=(10, 5))
-            plt.plot(value["global_step"], value["value"], marker='o', linestyle='-', label=key)
+        if "max_reward" in key:
+            continue
+        plt.figure(figsize=(10, 5))
+        plt.plot(value["global_step"], value["value"], marker='o', linestyle='-', label=key)
 
-            plt.title('Log Data vs. Global Step')
-            plt.xlabel('Global Step')
-            plt.ylabel('Values')
-            plt.grid()
-            plt.legend()
-            plt.show()
+        plt.title('Log Data vs. Global Step')
+        plt.xlabel('Global Step')
+        plt.ylabel('Values')
+        plt.grid()
+        plt.legend()
+        plt.show()
 
 if __name__ == "__main__":
     main()

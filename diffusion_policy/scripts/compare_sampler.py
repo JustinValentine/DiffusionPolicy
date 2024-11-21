@@ -9,10 +9,11 @@ from diffusion_policy.workspace.base_workspace import BaseWorkspace
 
 @click.command()
 @click.option('-w', '--workspace_dir', required=True)
-def main(workspace_dir):
+@click.option('-c', '--ckpt', default="latest.ckpt")
+def main(workspace_dir, ckpt):
     checkpoint_dir = Path(workspace_dir) / "checkpoints"
 
-    checkpoint = checkpoint_dir / "latest.ckpt"
+    checkpoint = checkpoint_dir / ckpt
 
     assert checkpoint.exists(), f"Checkpoint {checkpoint} does not exist"
 
@@ -23,19 +24,13 @@ def main(workspace_dir):
     workspace: BaseWorkspace = cls(cfg, output_dir=workspace_dir)
     workspace.load_payload(payload, exclude_keys=['_output_dir'])
 
-    step_list = [1, 2, 4, 8, 16, 32, 64, 128]
+    step_list = [1, 2, 4, 8, 16, 32, 64, 100]
     results = []
-    policy = workspace.ema.get()[0]
+    policy = workspace.ema.get()
+    if isinstance(policy, list):
+        policy = policy[0]
     policy.to(torch.device('cuda:0'))
-    # policy.to(torch.device('mps'))
     policy.eval()
-
-    policy.noise_scheduler = ExponentialNoiseScheduler(
-        sigma_min=1e-3,
-        sigma_max=1,
-        device="cuda:0",
-        append_zero=False
-    )
 
     env_runner = hydra.utils.instantiate(
         workspace.cfg.task.env_runner,
@@ -43,7 +38,6 @@ def main(workspace_dir):
     for n_steps in step_list:
 
         policy.num_inference_steps = n_steps
-
         res = env_runner.run(policy)
         results.append(res['test/mean_score'])
         print(f"n_steps: {n_steps}, score: {res['test/mean_score']}")
