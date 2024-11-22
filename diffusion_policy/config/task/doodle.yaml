@@ -8,16 +8,16 @@ shape_meta:
   # acceptable types: rgb, low_dim
   obs:
     class_quat:
-      shape: [340]
+      shape: [100]
       type: low_dim
     on_paper_quat:
-      shape: [2]
+      shape: [1]
       type: low_dim
     termination_quat:
       shape: [1]
       type: low_dim
   action: 
-    shape: [5]
+    shape: [4]
 
 task_name: square
 dataset_type: ph
