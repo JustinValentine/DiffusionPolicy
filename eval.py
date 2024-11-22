@@ -1,6 +1,6 @@
 """
 Usage:
-python eval.py --checkpoint /home/odin/DiffusionPolicy/data/outputs/2024.11.21/01.00.15_doodle_square_image/checkpoints/epoch_25.ckpt -o data/pusht_eval_output
+python eval.py --checkpoint /home/odin/DiffusionPolicy/data/outputs/2024.11.21/19.12.44_doodle_square_image/checkpoints/epoch_25.ckpt -o data/pusht_eval_output
 """
 
 import sys
@@ -49,8 +49,8 @@ def main(checkpoint, output_dir, device):
 
     obs_dict = {
         "obs": {
-            "class_quat": torch.eye(10)[1],  
-            "on_paper_quat": torch.zeros(2),  
+            "class_quat": torch.eye(10)[7],  
+            "on_paper_quat": torch.tensor([0]),  
             "termination_quat": torch.tensor([0])  
         }
     }
@@ -61,7 +61,18 @@ def main(checkpoint, output_dir, device):
     with torch.no_grad():
         gen_doodle = policy.predict_action(obs_dict)
 
-    print(gen_doodle)
+    # Convert the tensor to a list of lists
+    action_tensor = gen_doodle['action']  # Extract the action tensor
+    action_tensor = action_tensor.cpu().numpy()  # Move to CPU and convert to NumPy (if on CUDA)
+
+    # Flatten the first dimension (batch size or sequence size) if needed
+    action_array = action_tensor.reshape(-1, 4)  # Shape to (N, 4) where N is the number of steps
+
+    # Convert to a list of lists for plotting
+    data = action_array.tolist()
+
+    # Example output
+    print(data)
 
 
 if __name__ == '__main__':

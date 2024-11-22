@@ -8,7 +8,7 @@ shape_meta:
   # acceptable types: rgb, low_dim
   obs:
     class_quat:
-      shape: [100]
+      shape: [10]
       type: low_dim
     on_paper_quat:
       shape: [1]
