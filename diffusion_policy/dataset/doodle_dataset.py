@@ -178,18 +178,35 @@ class DoodleDataset(BaseDataset):
             normalizer_obs[key] = this_normalizer
 
         normalizer['obs'] = normalizer_obs
-        print(normalizer['obs'])
         return normalizer
 
     def get_all_actions(self) -> torch.Tensor:
         return torch.from_numpy(self.replay_buffer['action'])
 
     def __len__(self):
-        return len(self.sampler)
+        # return len(self.sampler)
+        return self.replay_buffer.n_episodes
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         threadpool_limits(1)
-        data = self.sampler.sample_sequence(idx)
+
+        index = self.replay_buffer.get_episode_slice(idx)
+
+        data = dict()
+        for key in list(self.replay_buffer.keys()):
+            input_arr = self.replay_buffer[key][index]
+
+            if key == 'class_quat':
+                data[key] = np.tile(input_arr[0], (64, 1))
+            elif key == 'on_paper_quat' or key == 'termination_quat':
+                data[key] = np.full((64,) + input_arr.shape[1:], -1)
+            else:
+                data[key] = np.zeros((64,)+input_arr.shape[1:])
+            
+            data[key][:len(input_arr)] = input_arr
+
+
+        # data = self.sampler.sample_sequence(idx)
 
         # to save RAM, only return first n_obs_steps of OBS
         # since the rest will be discarded anyway.
@@ -216,13 +233,13 @@ class DoodleDataset(BaseDataset):
 def _convert_doodle_to_replay():
     replay_buffer = ReplayBuffer.create_empty_numpy()
 
-    with open('/home/thor/DiffusionPolicy/data/doodle/class_index.json', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/hard_class_index.json', 'r') as f:
         class_to_index = json.load(f)
 
     # Process the data
-    max_trajectory_lenght = 100
+    max_trajectory_lenght = 64
 
-    with open('/home/thor/DiffusionPolicy/data/doodle/data_train.csv', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/hard_data_train.csv', 'r') as f:
         reader = csv.reader(f)
         i = 0
         for row in reader:
@@ -247,23 +264,26 @@ def _convert_doodle_to_replay():
             for point in trajectories:
                 x, y, p1, p2 = point
 
-                # One-hot encode p1 for 'on_paper_quat'
                 if p1 == 1:
-                    on_paper_one_hot = [1, 0]
-                elif p1 == 0:
-                    on_paper_one_hot = [0, 1]
+                    on_paper_one_hot = 1
+                else:
+                    on_paper_one_hot = -1
+                if p2 == 1:
+                    termination = 1
+                else:
+                    termination = -1
 
                 class_quat.append(class_value)
                 on_paper_quat.append(on_paper_one_hot)
-                termination_quat.append(p2)
+                termination_quat.append(termination)
 
-                action_point = [x, y, *on_paper_one_hot, p2]
+                action_point = [x, y, on_paper_one_hot, termination]
                 action.append(action_point)
 
             # Convert lists to NumPy arrays
-            class_quat = np.array(class_quat, dtype=bool)
-            on_paper_quat = np.array(on_paper_quat, dtype=bool)
-            termination_quat = np.array(termination_quat, dtype=bool)
+            class_quat = np.array(class_quat, dtype=np.int8)
+            on_paper_quat = np.array(on_paper_quat, dtype=np.int8)
+            termination_quat = np.array(termination_quat, dtype=np.int8)
             action = np.array(action, dtype=float)
 
             data = {
