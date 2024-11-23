@@ -1,4 +1,4 @@
-_target_: diffusion_policy.policy.ot_flow_matching_policy.OTFlowMatchingPolicy
+_target_: diffusion_policy.policy.obs_ot_flow_matching_policy.OTFlowMatchingPolicy
 _recursive_: False
 
 defaults:
@@ -24,3 +24,8 @@ noise_scheduler:
   sigma_min: 0
   sigma_max: 1
   append_zero: False
+
+
+obs_to_action:
+  _target_: diffusion_policy.env_runner.dummy_runner.DummyRunner
+  output_dir: /tmp

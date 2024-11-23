@@ -6,8 +6,7 @@ import torch
 import torch.nn.functional as F
 from einops import reduce
 from omegaconf import DictConfig
-from torchcfm.optimal_transport import OTPlanSampler
-from torchdyn.core import NeuralODE
+
 
 from diffusion_policy.common.distributions import Distribution
 from diffusion_policy.common.pytorch_util import dict_apply
@@ -55,7 +54,7 @@ class OTFlowMatchingPolicy(BasePolicy):
         self.obs_encoder = hydra.utils.instantiate(obs_encoder)
         obs_feature_dim = self.obs_encoder.output_shape()[0]
 
-        self.ot_sampler = OTPlanSampler(method="sinkhorn", reg=1, normalize_cost=True)
+        # self.ot_sampler = OTPlanSampler(method="sinkhorn", reg=1, normalize_cost=True)
 
         self.obs_to_action = hydra.utils.instantiate(obs_to_action)
 
