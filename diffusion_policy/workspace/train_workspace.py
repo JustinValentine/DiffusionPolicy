@@ -31,7 +31,7 @@ from diffusion_policy.model.common.lr_scheduler import get_scheduler
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
 
-class TrainDiffusionWorkspace(BaseWorkspace):
+class TrainWorkspace(BaseWorkspace):
     include_keys = ["global_step", "epoch"]
 
     def __init__(self, cfg: DictConfig, output_dir=None):
@@ -348,7 +348,7 @@ class TrainDiffusionWorkspace(BaseWorkspace):
     config_name=pathlib.Path(__file__).stem,
 )
 def main(cfg):
-    workspace = TrainDiffusionWorkspace(cfg)
+    workspace = TrainWorkspace(cfg)
     workspace.run()
 
 

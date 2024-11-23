@@ -11,7 +11,7 @@ defaults:
   - _self_
 
 name: train_diffusion_transformer_lowdim
-_target_: diffusion_policy.workspace.train_diffusion_workspace.TrainDiffusionWorkspace
+_target_: diffusion_policy.workspace.train_workspace.TrainWorkspace
 
 shape_meta: ${task.shape_meta}
 
