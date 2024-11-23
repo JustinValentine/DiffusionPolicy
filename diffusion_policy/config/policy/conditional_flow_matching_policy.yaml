@@ -1,4 +1,4 @@
-_target_: diffusion_policy.policy.obs_ot_flow_matching_policy.OTFlowMatchingPolicy
+_target_: diffusion_policy.policy.conditional_flow_matching_policy.ConditionalFlowMatchingPolicy
 _recursive_: False
 
 defaults:

@@ -1,25 +1,28 @@
 defaults:
-  - task: tool_hang_lowdim_abs
+  - task: square_lowdim_abs
   - ema: power
   - monitoring
   - data_loader/lowdim@_global_
   - training: training
-  - optimizer: transformer
-  - policy: ot_flow_matching_policy
-  - override policy/inner_model: transformer
-  - override policy/obs_encoder: passthrough
+  - optimizer: adam
+  - policy: conditional_flow_matching_policy
+  - override policy/inner_model: unet
+  - override policy/obs_encoder: flatten_time
   - _self_
 
-name: train_of_flow_matching_transformer_lowdim
+name: train_conditional_flow_matching_unet_lowdim
 _target_: diffusion_policy.workspace.train_diffusion_workspace.TrainDiffusionWorkspace
 
 shape_meta: ${task.shape_meta}
 
+policy:
+  inner_model:
+    down_dims: [256, 512, 1024]
+  target_sigma_min: 0.1
+  map_from_last_obs: True
+
 task_name: ${task.name}
 exp_name: "default"
-
-policy:
-  target_sigma_min: 0.1
 
 horizon: 16
 n_obs_steps: 2
@@ -27,8 +30,9 @@ n_action_steps: 8
 n_latency_steps: 0
 past_action_visible: False
 keypoint_visible_rate: 1.0
-obs_as_global_cond: True
 obs_as_local_cond: False
+obs_as_global_cond: True
 pred_action_steps_only: False
 num_inference_steps: 100
+
 

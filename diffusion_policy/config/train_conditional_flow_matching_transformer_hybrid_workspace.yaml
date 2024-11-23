@@ -5,12 +5,12 @@ defaults:
   # - ema: ema
   - training: training
   - optimizer: transformer
-  - policy: ot_flow_matching_policy
+  - policy: conditional_flow_matching_policy
   - override policy/inner_model: transformer
   - override policy/obs_encoder: robomimic_obs_encoder
   - _self_
 
-name: train_ot_flow_matching_transformer_hybrid
+name: train_conditional_flow_matching_transformer_hybrid
 _target_: diffusion_policy.workspace.train_diffusion_workspace.TrainDiffusionWorkspace
 
 task_name: ${task.name}
