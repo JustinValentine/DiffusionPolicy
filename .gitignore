@@ -7,6 +7,9 @@ data_local
 .vscode
 _wandb
 doodle_env
+venv
+data_utils/doodle_data.csv
+data_utils/outputs
 
 **/.DS_Store
 
