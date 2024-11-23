@@ -1,6 +1,6 @@
 """
 Usage:
-python eval.py --checkpoint /home/odin/DiffusionPolicy/data/outputs/2024.11.21/19.12.44_doodle_square_image/checkpoints/epoch_25.ckpt -o data/pusht_eval_output
+python eval.py --checkpoint /home/odin/DiffusionPolicy/data/outputs/2024.11.22/15.24.12_doodle_square_image/checkpoints/epoch_550.ckpt -o data/pusht_eval_output
 """
 
 import sys
@@ -20,6 +20,8 @@ import json
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 import numpy as np
 from diffusion_policy.common.pytorch_util import dict_apply
+from torch.utils.data import DataLoader, RandomSampler
+
 
 @click.command()
 @click.option('-c', '--checkpoint', required=True)
@@ -37,42 +39,50 @@ def main(checkpoint, output_dir, device):
     workspace = cls(cfg, output_dir=output_dir)
     workspace: BaseWorkspace
     workspace.load_payload(payload, exclude_keys=None, include_keys=None)
+
+    dataset = hydra.utils.instantiate(cfg.task.dataset)
+    train_dataloader = DataLoader(dataset, **cfg.dataloader)
+
+    sample = train_dataloader['action']
+
     
     # get policy from workspace
     policy = workspace.model
     if cfg.training.use_ema:
         policy = workspace.ema.get()
     
-    device = torch.device(device)
-    policy.to(device)
-    policy.eval()
+    # device = torch.device(device)
+    # policy.to(device)
+    # policy.eval()
 
-    obs_dict = {
-        "obs": {
-            "class_quat": torch.eye(10)[7],  
-            "on_paper_quat": torch.tensor([0]),  
-            "termination_quat": torch.tensor([0])  
-        }
-    }
+    # obs_dict = {
+    #     "obs": {
+    #         "class_quat": torch.eye(100)[0],  
+    #         "on_paper_quat": torch.tensor([0]),  
+    #         "termination_quat": torch.tensor([0])  
+    #     }
+    # }
 
-    obs_dict = dict_apply(obs_dict, lambda x: x.unsqueeze(0).unsqueeze(0).to(device))
-    # obs_dict = dict_apply(obs_dict, lambda x: x.to(device))
+    # obs_dict = dict_apply(obs_dict, lambda x: x.unsqueeze(0).unsqueeze(0).to(device))
+    # # obs_dict = dict_apply(obs_dict, lambda x: x.to(device))
 
-    with torch.no_grad():
-        gen_doodle = policy.predict_action(obs_dict)
+    # with torch.no_grad():
+    #     gen_doodle = policy.predict_action(obs_dict)
 
-    # Convert the tensor to a list of lists
-    action_tensor = gen_doodle['action']  # Extract the action tensor
-    action_tensor = action_tensor.cpu().numpy()  # Move to CPU and convert to NumPy (if on CUDA)
+    print(sample)
 
-    # Flatten the first dimension (batch size or sequence size) if needed
-    action_array = action_tensor.reshape(-1, 4)  # Shape to (N, 4) where N is the number of steps
+    # # Convert the tensor to a list of lists
+    # action_tensor = gen_doodle['action']  # Extract the action tensor
+    # action_tensor = action_tensor.cpu().numpy()  # Move to CPU and convert to NumPy (if on CUDA)
 
-    # Convert to a list of lists for plotting
-    data = action_array.tolist()
+    # # Flatten the first dimension (batch size or sequence size) if needed
+    # action_array = action_tensor.reshape(-1, 4)  # Shape to (N, 4) where N is the number of steps
 
-    # Example output
-    print(data)
+    # # Convert to a list of lists for plotting
+    # data = action_array.tolist()
+
+    # # Example output
+    # print(data)
 
 
 if __name__ == '__main__':

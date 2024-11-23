@@ -8,16 +8,10 @@ shape_meta:
   # acceptable types: rgb, low_dim
   obs:
     class_quat:
-      shape: [10]
-      type: low_dim
-    on_paper_quat:
-      shape: [1]
-      type: low_dim
-    termination_quat:
-      shape: [1]
+      shape: [3]
       type: low_dim
   action: 
-    shape: [4]
+    shape: [3]
 
 task_name: square
 dataset_type: ph
@@ -26,7 +20,8 @@ abs_action: False
 resize_shape: null
 
 env_runner:
-  _target_: diffusion_policy.env_runner.dummy_runner.DummyRunner
+  _target_: diffusion_policy.env_runner.doodle_runner.DoodleRunner
+  n_classes: 3
 
 dataset:
   _target_: diffusion_policy.dataset.doodle_dataset.DoodleDataset

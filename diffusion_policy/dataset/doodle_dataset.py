@@ -198,10 +198,10 @@ class DoodleDataset(BaseDataset):
 
             if key == 'class_quat':
                 data[key] = np.tile(input_arr[0], (64, 1))
-            elif key == 'on_paper_quat' or key == 'termination_quat':
+            elif key == 'on_paper_quat':
                 data[key] = np.full((64,) + input_arr.shape[1:], -1)
             else:
-                data[key] = np.zeros((64,)+input_arr.shape[1:])
+                data[key] = -1*np.ones((64,)+input_arr.shape[1:])
             
             data[key][:len(input_arr)] = input_arr
 
@@ -233,15 +233,16 @@ class DoodleDataset(BaseDataset):
 def _convert_doodle_to_replay():
     replay_buffer = ReplayBuffer.create_empty_numpy()
 
-    with open('/home/odin/DiffusionPolicy/data/doodle/easy_class_index.json', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/circle_group_class_index.json', 'r') as f:
         class_to_index = json.load(f)
 
     # Process the data
     max_trajectory_lenght = 64
 
-    with open('/home/odin/DiffusionPolicy/data/doodle/easy_data_train.csv', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/circle_group_data_train.csv', 'r') as f:
         reader = csv.reader(f)
         i = 0
+        
         for row in reader:
             class_name = row[0]
             trajectories_str = row[1]
@@ -257,8 +258,6 @@ def _convert_doodle_to_replay():
             class_value[class_index] = 1
 
             class_quat = []
-            on_paper_quat = []
-            termination_quat = []
             action = []
 
             for point in trajectories:
@@ -268,28 +267,18 @@ def _convert_doodle_to_replay():
                     on_paper_one_hot = 1
                 else:
                     on_paper_one_hot = -1
-                if p2 == 1:
-                    termination = 1
-                else:
-                    termination = -1
 
                 class_quat.append(class_value)
-                on_paper_quat.append(on_paper_one_hot)
-                termination_quat.append(termination)
 
-                action_point = [x, y, on_paper_one_hot, termination]
+                action_point = [x, y, on_paper_one_hot]
                 action.append(action_point)
 
             # Convert lists to NumPy arrays
             class_quat = np.array(class_quat, dtype=np.int8)
-            on_paper_quat = np.array(on_paper_quat, dtype=np.int8)
-            termination_quat = np.array(termination_quat, dtype=np.int8)
             action = np.array(action, dtype=float)
 
             data = {
                 'class_quat': class_quat,
-                'on_paper_quat': on_paper_quat,
-                'termination_quat': termination_quat,
                 'action': action
             }
 
