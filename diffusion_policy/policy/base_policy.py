@@ -1,7 +1,6 @@
 from typing import Dict
 from abc import ABC, abstractmethod
 import torch
-import torch.nn as nn
 from diffusion_policy.model.common.module_attr_mixin import ModuleAttrMixin
 from diffusion_policy.model.common.normalizer import LinearNormalizer
 from omegaconf import DictConfig
@@ -9,19 +8,6 @@ import hydra
 
 class BasePolicy(ModuleAttrMixin, ABC):
     # init accepts keyword argument shape_meta, see config/task/*_image.yaml
-
-    @abstractmethod
-    def conditional_sample(
-        self,
-        condition_data,
-        condition_mask,
-        local_cond=None,
-        global_cond=None,
-        generator=None,
-        # keyword arguments to scheduler.step
-        **kwargs
-    ) -> torch.Tensor:
-        pass
 
     @abstractmethod
     def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -33,7 +19,7 @@ class BasePolicy(ModuleAttrMixin, ABC):
         pass
 
     @abstractmethod
-    def compute_loss(self, batch):
+    def compute_loss(self, batch) -> torch.Tensor:
         pass
 
     # reset state for stateful policies

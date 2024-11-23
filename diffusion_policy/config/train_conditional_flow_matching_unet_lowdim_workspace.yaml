@@ -20,6 +20,9 @@ policy:
     down_dims: [256, 512, 1024]
   target_sigma_min: 0.1
   map_from_last_obs: True
+  obs_to_action:
+    _target_: diffusion_policy.dataset.robomimic_replay_dataset.RobomimicObsToAction
+    abs_action: ${task.abs_action}
 
 task_name: ${task.name}
 exp_name: "default"
@@ -30,9 +33,6 @@ n_action_steps: 8
 n_latency_steps: 0
 past_action_visible: False
 keypoint_visible_rate: 1.0
-obs_as_local_cond: False
-obs_as_global_cond: True
-pred_action_steps_only: False
 num_inference_steps: 100
 
 

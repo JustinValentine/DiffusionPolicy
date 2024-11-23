@@ -7,7 +7,6 @@ import hydra
 
 from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.policy.base_policy import BasePolicy
-from diffusion_policy.model.diffusion.mask_generator import LowdimMaskGenerator
 from diffusion_policy.common.pytorch_util import dict_apply
 
 
@@ -22,16 +21,10 @@ class DiffusionPolicy(BasePolicy):
         n_action_steps,
         n_obs_steps,
         num_inference_steps=None,
-        obs_as_local_cond=False,
-        obs_as_global_cond=True,
-        pred_action_steps_only=False,
         # parameters passed to step
         **kwargs,
     ):
         super().__init__()
-        assert not (obs_as_local_cond and obs_as_global_cond)
-        if pred_action_steps_only:
-            assert obs_as_global_cond
 
         # parse shapes
         action_shape = shape_meta["action"]["shape"]
@@ -44,15 +37,8 @@ class DiffusionPolicy(BasePolicy):
         obs_feature_dim = self.obs_encoder.output_shape()[0]
 
         # create diffusion model
-        input_dim = action_dim + obs_feature_dim
-        global_cond_dim = None
-        if obs_as_global_cond:
-            input_dim = action_dim
-            global_cond_dim = obs_feature_dim
-
-        local_cond_dim = None
-        if obs_as_local_cond:
-            local_cond_dim = obs_feature_dim
+        input_dim = action_dim
+        global_cond_dim = obs_feature_dim
 
         if hasattr(inner_model, "input_dim"):
             inner_model.input_dim = input_dim
@@ -60,26 +46,13 @@ class DiffusionPolicy(BasePolicy):
         if hasattr(inner_model, "global_cond_dim"):
             inner_model.global_cond_dim = global_cond_dim
 
-        if hasattr(inner_model, "local_cond_dim"):
-            inner_model.local_cond_dim = local_cond_dim
-
         self.model = hydra.utils.instantiate(inner_model)
-        self.mask_generator = LowdimMaskGenerator(
-            action_dim=action_dim,
-            obs_dim=0 if obs_as_global_cond else obs_feature_dim,
-            max_n_obs_steps=n_obs_steps,
-            fix_obs_steps=True,
-            action_visible=False,
-        )
         self.normalizer = LinearNormalizer()
         self.horizon = horizon
         self.obs_feature_dim = obs_feature_dim
         self.action_dim = action_dim
         self.n_action_steps = n_action_steps
         self.n_obs_steps = n_obs_steps
-        self.obs_as_local_cond = obs_as_local_cond
-        self.obs_as_global_cond = obs_as_global_cond
-        self.pred_action_steps_only = pred_action_steps_only
         self.kwargs = kwargs
 
         if num_inference_steps is None:
@@ -89,10 +62,7 @@ class DiffusionPolicy(BasePolicy):
     # ========= inference  ============
     def conditional_sample(
         self,
-        condition_data,
-        condition_mask,
-        local_cond=None,
-        global_cond=None,
+        global_cond: torch.Tensor,
         generator=None,
         collector=None,
         # keyword arguments to scheduler.step
@@ -101,10 +71,12 @@ class DiffusionPolicy(BasePolicy):
         model = self.model
         scheduler = self.noise_scheduler
 
+        # get batch size
+        B = global_cond.shape[0]
+
         trajectory = torch.randn(
-            size=condition_data.shape,
-            dtype=condition_data.dtype,
-            device=condition_data.device,
+            size=(B, self.horizon, self.action_dim),
+            device=self.device,
             generator=generator,
         )
 
@@ -112,26 +84,18 @@ class DiffusionPolicy(BasePolicy):
         scheduler.set_timesteps(self.num_inference_steps)
 
         for t in scheduler.timesteps:
-            # 1. apply conditioning
-            trajectory[condition_mask] = condition_data[condition_mask]
 
-            # 2. predict model output
             model_output = model(
-                trajectory, t, local_cond=local_cond, global_cond=global_cond
+                trajectory, t, global_cond=global_cond
             )
 
-            if collector:
-                collector.add(model_output, trajectory, t)
-
-            # 3. compute previous image: x_t -> x_t-1
+            # compute previous image: x_t -> x_t-1
             trajectory = scheduler.step(
                 model_output, t, trajectory, generator=generator, **kwargs
             ).prev_sample
+
             if collector:
                 collector.add(model_output, trajectory, t)
-
-        # finally make sure conditioning is enforced
-        trajectory[condition_mask] = condition_data[condition_mask]
 
         return trajectory
 
@@ -144,70 +108,26 @@ class DiffusionPolicy(BasePolicy):
         """
 
         assert "obs" in obs_dict
-        assert "past_action" not in obs_dict  # not implemented yet
+
         # normalize input
         nobs = self.normalizer.normalize(obs_dict)["obs"]
-        if isinstance(nobs, dict):
-            value = next(iter(nobs.values()))
-        else:
-            value = nobs
-        B, To = value.shape[:2]
-        T = self.horizon
-        Da = self.action_dim
-        Do = self.obs_feature_dim
-        To = self.n_obs_steps
 
-        # build input
-        device = self.device
-        dtype = self.dtype
-
-        # handle different ways of passing observation
-        local_cond = None
-        global_cond = None
-        if self.obs_as_local_cond:
-            # condition through local feature
-            # all zero except first To timesteps
-            local_cond = torch.zeros(size=(B, T, Do), device=device, dtype=dtype)
-            local_cond[:, :To] = nobs[:, :To]
-            shape = (B, T, Da)
-            cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
-            cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
-        elif self.obs_as_global_cond:
-            # condition through global feature
-            this_nobs = dict_apply(nobs, lambda x: x[:, :To, ...])
-            global_cond = self.obs_encoder(this_nobs)
-            # empty data for action
-            cond_data = torch.zeros(size=(B, T, Da), device=device, dtype=dtype)
-            cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
-        else:
-            # condition through impainting
-            this_nobs = dict_apply(
-                nobs, lambda x: x[:, :To, ...].reshape(-1, *x.shape[2:])
-            )
-            nobs_features = self.obs_encoder(this_nobs)
-            # reshape back to B, T, Do
-            nobs_features = nobs_features.reshape(B, To, -1)
-            cond_data = torch.zeros(size=(B, T, Da + Do), device=device, dtype=dtype)
-            cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
-            cond_data[:, :To, Da:] = nobs_features
-            cond_mask[:, :To, Da:] = True
+        this_nobs = dict_apply(nobs, lambda x: x[:, :self.n_obs_steps, ...])
+        global_cond = self.obs_encoder(this_nobs)
 
         # run sampling
         nsample = self.conditional_sample(
-            cond_data,
-            cond_mask,
-            local_cond=local_cond,
             global_cond=global_cond,
             collector=collector,
             **self.kwargs,
         )
 
         # unnormalize prediction
-        naction_pred = nsample[..., :Da]
+        naction_pred = nsample[..., :self.action_dim]
         action_pred = self.normalizer["action"].unnormalize(naction_pred)
 
         # get action
-        start = To - 1
+        start = self.n_obs_steps - 1
         end = start + self.n_action_steps
         action = action_pred[:, start:end]
 
@@ -221,36 +141,18 @@ class DiffusionPolicy(BasePolicy):
     def compute_loss(self, batch):
         # normalize input
         assert "valid_mask" not in batch
+
         nbatch = self.normalizer.normalize(batch)
         nobs = nbatch["obs"]
         nactions = nbatch["action"]
-        batch_size = nactions.shape[0]
-        horizon = nactions.shape[1]
 
         # handle different ways of passing observation
-        local_cond = None
-        global_cond = None
         trajectory = nactions
-        cond_data = trajectory
-        if self.obs_as_global_cond:
-            # reshape B, T, ... to B*T
-            this_nobs = dict_apply(
-                nobs, lambda x: x[:, : self.n_obs_steps, ...])
-            global_cond = self.obs_encoder(this_nobs)
-            # reshape back to B, Do
-            # global_cond = nobs_features.reshape(batch_size, -1)
-        else:
-            # reshape B, T, ... to B*T
-            # TODO: this will not work with the reshape, same goes for local_cond
-            this_nobs = dict_apply(nobs, lambda x: x.reshape(-1, *x.shape[2:]))
-            nobs_features = self.obs_encoder(this_nobs)
-            # reshape back to B, T, Do
-            nobs_features = nobs_features.reshape(batch_size, horizon, -1)
-            cond_data = torch.cat([nactions, nobs_features], dim=-1)
-            trajectory = cond_data.detach()
 
-        # generate impainting mask
-        condition_mask = self.mask_generator(trajectory.shape)
+        this_nobs = dict_apply(
+            nobs, lambda x: x[:, : self.n_obs_steps, ...])
+        global_cond = self.obs_encoder(this_nobs)
+
 
         # Sample noise that we'll add to the images
         noise = torch.randn(trajectory.shape, device=trajectory.device)
@@ -266,15 +168,9 @@ class DiffusionPolicy(BasePolicy):
         # (this is the forward diffusion process)
         noisy_trajectory = self.noise_scheduler.add_noise(trajectory, noise, timesteps)
 
-        # compute loss mask
-        loss_mask = ~condition_mask
-
-        # apply conditioning
-        noisy_trajectory[condition_mask] = cond_data[condition_mask]
-
         # Predict the noise residual
         pred = self.model(
-            noisy_trajectory, timesteps, local_cond=local_cond, global_cond=global_cond
+            noisy_trajectory, timesteps, global_cond=global_cond
         )
 
         pred_type = self.noise_scheduler.config.prediction_type
@@ -286,7 +182,6 @@ class DiffusionPolicy(BasePolicy):
             raise ValueError(f"Unsupported prediction type {pred_type}")
 
         loss = F.mse_loss(pred, target, reduction="none")
-        loss = loss * loss_mask.type(loss.dtype)
         loss = reduce(loss, "b ... -> b (...)", "mean")
         loss = loss.mean()
         return loss

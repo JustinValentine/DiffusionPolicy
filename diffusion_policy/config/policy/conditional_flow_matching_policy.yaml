@@ -15,9 +15,6 @@ horizon: ${horizon}
 n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
 n_obs_steps: ${n_obs_steps}
 num_inference_steps: ${num_inference_steps}
-obs_as_local_cond: ${obs_as_local_cond}
-obs_as_global_cond: ${obs_as_global_cond}
-pred_action_steps_only: ${pred_action_steps_only}
 target_sigma_min: 0.0
 map_from_last_obs: True
 
@@ -26,6 +23,6 @@ noise_scheduler:
   sigma_max: 1
   append_zero: False
 
-obs_to_action:
-  _target_: diffusion_policy.dataset.robomimic_replay_dataset.RobomimicObsToAction
-  abs_action: ${task.abs_action}
+# obs_to_action:
+#   _target_: diffusion_policy.dataset.robomimic_replay_dataset.RobomimicObsToAction
+#   abs_action: ${task.abs_action}
