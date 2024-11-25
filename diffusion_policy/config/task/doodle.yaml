@@ -2,13 +2,13 @@ defaults:
 
   - _self_
 
-name: square_image
+name: doodle
 
 shape_meta:
   # acceptable types: rgb, low_dim
   obs:
     class_quat:
-      shape: [3]
+      shape: [10]
       type: low_dim
   action: 
     shape: [3]
@@ -21,7 +21,7 @@ resize_shape: null
 
 env_runner:
   _target_: diffusion_policy.env_runner.doodle_runner.DoodleRunner
-  n_classes: 3
+  n_classes: 10
 
 dataset:
   _target_: diffusion_policy.dataset.doodle_dataset.DoodleDataset

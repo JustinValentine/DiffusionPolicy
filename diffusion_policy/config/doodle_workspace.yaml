@@ -5,21 +5,20 @@ defaults:
   - data_loader/lowdim@_global_
   - training: training
   - optimizer: adam
-  - policy: diffusion_policy
+  - policy: conditional_flow_matching_policy
   - override policy/inner_model: unet
   - override policy/obs_encoder: flatten_time
   - _self_
 
-name: doodle
+name: flow_matching
 _target_: diffusion_policy.workspace.train_workspace.TrainWorkspace
-
 
 
 policy:
   inner_model:
     down_dims: [256, 512, 1024]
-  # target_sigma_min: 0.1
-  # map_from_last_obs: False
+  target_sigma_min: 0.1
+  map_from_last_obs: False
 
 
 task_name: ${task.name}
@@ -34,5 +33,3 @@ dataset_obs_steps: ${n_obs_steps}
 past_action_visible: False
 keypoint_visible_rate: 1.0
 num_inference_steps: 100
-
-

@@ -233,13 +233,13 @@ class DoodleDataset(BaseDataset):
 def _convert_doodle_to_replay():
     replay_buffer = ReplayBuffer.create_empty_numpy()
 
-    with open('/home/odin/DiffusionPolicy/data/doodle/circle_group_class_index.json', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/easy_class_index.json', 'r') as f:
         class_to_index = json.load(f)
 
     # Process the data
     max_trajectory_lenght = 64
 
-    with open('/home/odin/DiffusionPolicy/data/doodle/circle_group_data_train.csv', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/easy_data_train.csv', 'r') as f:
         reader = csv.reader(f)
         i = 0
         
@@ -275,7 +275,7 @@ def _convert_doodle_to_replay():
 
             # Convert lists to NumPy arrays
             class_quat = np.array(class_quat, dtype=np.int8)
-            action = np.array(action, dtype=float)
+            action = np.array(action, dtype=np.float32)
 
             data = {
                 'class_quat': class_quat,
