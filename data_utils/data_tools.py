@@ -13,7 +13,7 @@ import random
 class DataTools():
 	def __init__(self):
 		self.difficulty = "easy"
-		self.class_name = "smiley_face"
+		self.class_name = "20_hot"
 
 	def download_data(self):
 		"""
@@ -55,6 +55,10 @@ class DataTools():
 		if self.class_name:
 			if self.class_name == "smiley_face":
 				class_group = ["smiley face"]
+			elif self.class_name == "circle_group":
+				class_group = ["smiley face", "cat", "apple"]
+			elif self.class_name == "20_hot":
+				class_group = ["circle", "triangle", "anvil", "moon", "t-shirt", "star", "sun", "rainbow", "apple", "hand", "fish", "carrot", "bowtie", "bush", "chair", "envelope", "pizza", "mountain", "key", "butterfly", "smiley face", "bee", "bird", "diamond", "eyeglasses"]
 		else:
 			if self.difficulty == "easy":
 				class_group = random.sample(classes, 10)
