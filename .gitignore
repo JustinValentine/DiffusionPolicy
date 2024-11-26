@@ -10,6 +10,7 @@ doodle_env
 venv
 data_utils/doodle_data.csv
 data_utils/outputs
+cnn/data_files/*
 
 **/.DS_Store
 
