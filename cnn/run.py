@@ -101,11 +101,6 @@ class CNNTrainer():
 					correct += (predicted == labels).sum().item()
 					total += labels.size(0)
 
-			print(f"Epoch [{epoch + 1}/{epochs}], "
-				f"Training Loss: {running_loss / len(train_loader):.4f}, "
-				f"Validation Loss: {val_loss / len(validate_loader):.4f}, "
-				f"Validation Accuracy: {100 * correct / total:.2f}%")
-
 			tLoss.append(running_loss / len(train_loader))
 			vLoss.append(val_loss / len(validate_loader))
 			vAccuracy.append(100 * correct / total)
@@ -119,7 +114,7 @@ class CNNTrainer():
 		# Training Finished
 		torch.save(self.model.state_dict(), 'model-state.pt')
 
-	def write_metrics(tLoss, vLoss, vAccuracy):
+	def write_metrics(self, tLoss, vLoss, vAccuracy):
 		# Number of epochs (this will be the length of any of the lists)
 		epochs = range(1, len(tLoss) + 1)
 
@@ -131,7 +126,7 @@ class CNNTrainer():
 
 		# Plot Training Loss
 		plt.subplot(1, 3, 1)
-		plt.plot(epochs, tLoss, label="Training Loss", color='b', marker='o')
+		plt.plot(epochs, tLoss, label="Training Loss", color='b')
 		plt.title("Training Loss")
 		plt.xlabel("Epochs")
 		plt.ylabel("Loss")
@@ -140,7 +135,7 @@ class CNNTrainer():
 
 		# Plot Validation Loss
 		plt.subplot(1, 3, 2)
-		plt.plot(epochs, vLoss, label="Validation Loss", color='r', marker='o')
+		plt.plot(epochs, vLoss, label="Validation Loss", color='r')
 		plt.title("Validation Loss")
 		plt.xlabel("Epochs")
 		plt.ylabel("Loss")
@@ -149,7 +144,7 @@ class CNNTrainer():
 
 		# Plot Validation Accuracy
 		plt.subplot(1, 3, 3)
-		plt.plot(epochs, vAccuracy, label="Validation Accuracy", color='g', marker='o')
+		plt.plot(epochs, vAccuracy, label="Validation Accuracy", color='g')
 		plt.title("Validation Accuracy")
 		plt.xlabel("Epochs")
 		plt.ylabel("Accuracy (%)")
@@ -160,7 +155,7 @@ class CNNTrainer():
 		plt.tight_layout()
 
 		# Save the plot as a PNG file in the training_metrics directory
-		plt.savefig("./training_metrics/training_metrics_plot.png")
+		plt.savefig(f"./training_metrics/epoch_{epoch}_training_metrics_plot.png")
 
 
 	def test(self):
