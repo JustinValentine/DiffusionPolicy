@@ -1,12 +1,11 @@
-import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
 class CNNModel(nn.Module):
 	def __init__(self):
 		super(CNNModel, self).__init__()
+
+		self.num_classes = 25
 
 		# Define the CNN architecture
 		self.conv_layers = nn.Sequential(
@@ -26,12 +25,12 @@ class CNNModel(nn.Module):
 			nn.Linear(128 * 16 * 16, 128),  # Adjust input dimensions
 			nn.ReLU(),
 			nn.Dropout(0.5),  # Optional: prevents overfitting
-			nn.Linear(128, 3)  # Output layer with 3 classes
+			nn.Linear(128, self.num_classes)  # Output layer with self.num_classes classes
 		)
 
 	def forward(self, x, applySoftmax=False):
 		x = self.conv_layers(x)
 		x = self.fc_layers(x)
 		if applySoftmax:
-			x = F.softmax(x, dim=1)  # Apply softmax to get probabilities
+			x = F.softmax(x, dim=1) # Softmax for probabilities when evaluating
 		return x

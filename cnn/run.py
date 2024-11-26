@@ -1,13 +1,16 @@
+#Local Imports
 from cnn_utils import sequencesToDrawings, onehotClasses
 from model import CNNModel
 
+#External Libraries
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
 import ast
 import json
 
+#Pytorch
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,6 +18,9 @@ from torch.utils.data import DataLoader, TensorDataset
 
 
 class CNNTrainer():
+	'''
+	This class is for training and evaluating the CNNModel in model.py
+	'''
 	def __init__(self):
 		self.classes = None
 		self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -22,6 +28,7 @@ class CNNTrainer():
 
 	def train(self):
 
+		#Process all the data
 		df = pd.read_csv('./data_files/data.csv')
 		self.classes = df.iloc[:, 0].unique().tolist()
 		validateClassData = []
@@ -58,7 +65,10 @@ class CNNTrainer():
 		optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
 		# Training loop
-		epochs = 10
+		epochs = 50
+		tLoss = []
+		vLoss = []
+		vAccuracy = []
 		for epoch in tqdm(range(epochs), desc="Epoch:"):
 			self.model.train()
 			running_loss = 0.0
@@ -96,7 +106,62 @@ class CNNTrainer():
 				f"Validation Loss: {val_loss / len(validate_loader):.4f}, "
 				f"Validation Accuracy: {100 * correct / total:.2f}%")
 
+			tLoss.append(running_loss / len(train_loader))
+			vLoss.append(val_loss / len(validate_loader))
+			vAccuracy.append(100 * correct / total)
+
+			# Checkpoint the model
+			if epoch % 5 == 0:
+				self.write_metrics(tLoss, vLoss, vAccuracy)
+
+				torch.save(self.model.state_dict(), 'model-state.pt')
+			
+		# Training Finished
 		torch.save(self.model.state_dict(), 'model-state.pt')
+
+	def write_metrics(tLoss, vLoss, vAccuracy):
+		# Number of epochs (this will be the length of any of the lists)
+		epochs = range(1, len(tLoss) + 1)
+
+		# Directory where the images will be saved
+		directory = "training_metrics"
+
+		# Create a figure and axes
+		plt.figure(figsize=(12, 6))
+
+		# Plot Training Loss
+		plt.subplot(1, 3, 1)
+		plt.plot(epochs, tLoss, label="Training Loss", color='b', marker='o')
+		plt.title("Training Loss")
+		plt.xlabel("Epochs")
+		plt.ylabel("Loss")
+		plt.grid(True)
+		plt.legend()
+
+		# Plot Validation Loss
+		plt.subplot(1, 3, 2)
+		plt.plot(epochs, vLoss, label="Validation Loss", color='r', marker='o')
+		plt.title("Validation Loss")
+		plt.xlabel("Epochs")
+		plt.ylabel("Loss")
+		plt.grid(True)
+		plt.legend()
+
+		# Plot Validation Accuracy
+		plt.subplot(1, 3, 3)
+		plt.plot(epochs, vAccuracy, label="Validation Accuracy", color='g', marker='o')
+		plt.title("Validation Accuracy")
+		plt.xlabel("Epochs")
+		plt.ylabel("Accuracy (%)")
+		plt.grid(True)
+		plt.legend()
+
+		# Adjust layout to prevent overlap
+		plt.tight_layout()
+
+		# Save the plot as a PNG file in the training_metrics directory
+		plt.savefig("./training_metrics/training_metrics_plot.png")
+
 
 	def test(self):
 		self.model.load_state_dict(torch.load('model-state.pt', weights_only=True))

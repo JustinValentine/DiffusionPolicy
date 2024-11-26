@@ -1,6 +1,6 @@
+from tqdm import tqdm
 import numpy as np
 import cv2
-from tqdm import tqdm
 import ast
 import math
 import json
@@ -31,7 +31,7 @@ def sequencesToDrawings(data):
 	Converting the data list into a numpy array of images
 	'''
 	images = []
-	for drawing in data:
+	for drawing in tqdm(data, desc="Sequences to Drawings"):
 		sequence = ast.literal_eval(drawing)
 		img = sequenceToDrawing(sequence, size=(128, 128))
 		images.append(img)
@@ -44,5 +44,5 @@ def onehotClasses(data):
 	'''
 	with open('./data_files/data_index.json', 'r') as f:
 		indexes = json.load(f)
-	encodings = [[1 if name == index else 0 for index in indexes] for name in data]
+	encodings = [[1 if name == index else 0 for index in indexes] for name in tqdm(data, desc="Classes To One Hots")]
 	return encodings
