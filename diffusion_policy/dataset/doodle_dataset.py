@@ -197,7 +197,7 @@ class DoodleDataset(BaseDataset):
             input_arr = self.replay_buffer[key][index]
 
             if key == 'class_quat':
-                data[key] = np.tile(input_arr[0], (64, 1))
+                data[key] = np.tile(input_arr[0], (64,))
             elif key == 'on_paper_quat':
                 data[key] = np.full((64,) + input_arr.shape[1:], -1)
             else:
@@ -216,7 +216,7 @@ class DoodleDataset(BaseDataset):
 
         obs_dict = dict()
         for key in self.lowdim_keys:
-            obs_dict[key] = data[key][T_slice].astype(np.float32)
+            obs_dict[key] = data[key][T_slice].astype(np.int16)
             del data[key]
 
 
@@ -226,6 +226,7 @@ class DoodleDataset(BaseDataset):
         }
 
         torch_data = dict_apply(torch_data, lambda x: x.to(torch.float32))
+        torch_data["obs"] = dict_apply(torch_data["obs"], lambda x: x.to(torch.long))
 
         return torch_data
 
@@ -233,13 +234,13 @@ class DoodleDataset(BaseDataset):
 def _convert_doodle_to_replay():
     replay_buffer = ReplayBuffer.create_empty_numpy()
 
-    with open('/home/odin/DiffusionPolicy/data/doodle/easy_class_index.json', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/20_hot_class_index.json', 'r') as f:
         class_to_index = json.load(f)
 
     # Process the data
     max_trajectory_lenght = 64
 
-    with open('/home/odin/DiffusionPolicy/data/doodle/easy_data_train.csv', 'r') as f:
+    with open('/home/odin/DiffusionPolicy/data/doodle/20_hot_data_train.csv', 'r') as f:
         reader = csv.reader(f)
         i = 0
         
@@ -254,8 +255,8 @@ def _convert_doodle_to_replay():
 
             # One-hot encode the class
             class_index = class_to_index[class_name]
-            class_value = np.zeros(len(class_to_index.keys()), dtype=int).tolist()
-            class_value[class_index] = 1
+            # class_value = np.zeros(len(class_to_index.keys()), dtype=int).tolist()
+            # class_value[class_index] = class_index
 
             class_quat = []
             action = []
@@ -268,13 +269,13 @@ def _convert_doodle_to_replay():
                 else:
                     on_paper_one_hot = -1
 
-                class_quat.append(class_value)
+                class_quat.append(class_index)
 
                 action_point = [x, y, on_paper_one_hot]
                 action.append(action_point)
 
             # Convert lists to NumPy arrays
-            class_quat = np.array(class_quat, dtype=np.int8)
+            class_quat = np.array(class_quat, dtype=np.int16)
             action = np.array(action, dtype=np.float32)
 
             data = {

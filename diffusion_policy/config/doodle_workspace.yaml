@@ -7,7 +7,7 @@ defaults:
   - optimizer: adam
   - policy: conditional_flow_matching_policy
   - override policy/inner_model: unet
-  - override policy/obs_encoder: flatten_time
+  - override policy/obs_encoder: LabelEmb
   - _self_
 
 name: flow_matching
@@ -19,6 +19,9 @@ policy:
     down_dims: [256, 512, 1024]
   target_sigma_min: 0.1
   map_from_last_obs: False
+  obs_encoder:
+    n_classes: 25 
+    n_emb: 16
 
 
 task_name: ${task.name}

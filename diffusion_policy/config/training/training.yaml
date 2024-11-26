@@ -15,7 +15,7 @@ freeze_encoder: False
 # training loop control
 # in epochs
 rollout_every: 25
-checkpoint_every: 25
+checkpoint_every: 250
 val_every: 1
 sample_every: 5
 # steps per epoch

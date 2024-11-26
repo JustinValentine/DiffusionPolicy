@@ -143,7 +143,6 @@ class DiffusionPolicy(BasePolicy):
         assert "valid_mask" not in batch
 
         nbatch = self.normalizer.normalize(batch)
-        nbatch = dict_apply(nbatch, lambda x: x.to(torch.float32))
 
 
         nobs = nbatch["obs"]

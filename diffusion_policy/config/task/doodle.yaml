@@ -8,7 +8,7 @@ shape_meta:
   # acceptable types: rgb, low_dim
   obs:
     class_quat:
-      shape: [10]
+      shape: [1]
       type: low_dim
   action: 
     shape: [3]
@@ -21,7 +21,7 @@ resize_shape: null
 
 env_runner:
   _target_: diffusion_policy.env_runner.doodle_runner.DoodleRunner
-  n_classes: 10
+  n_classes: 25
 
 dataset:
   _target_: diffusion_policy.dataset.doodle_dataset.DoodleDataset

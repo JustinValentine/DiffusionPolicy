@@ -1,0 +1,4 @@
+_target_: diffusion_policy.model.diffusion.class_emb.LabelEmb
+time_dim: ${n_obs_steps}
+n_classes: ?? 
+n_emb: ??

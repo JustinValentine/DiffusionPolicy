@@ -30,7 +30,7 @@ class DoodleRunner(BaseRunner):
     def run(self, policy: BasePolicy):
 
         obs_dict = {
-            "obs": {"class_quat": torch.eye(self.n_classes)}
+            "obs": {"class_quat": torch.arange(self.n_classes)}
         }
 
         policy.eval()
