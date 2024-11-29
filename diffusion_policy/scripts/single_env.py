@@ -23,7 +23,7 @@ from diffusion_policy.workspace.base_workspace import BaseWorkspace
 import matplotlib.pyplot as plt
 import numpy as np
 
-class Collector:
+class Collector: # Justin: Use this to accses the intermedate denoising steps
     def __init__(self):
         self.reset()
 

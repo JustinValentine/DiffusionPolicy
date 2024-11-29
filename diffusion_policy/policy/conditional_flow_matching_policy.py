@@ -100,7 +100,7 @@ class ConditionalFlowMatchingPolicy(BasePolicy):
             trajectory = trajectory + pred * dt
 
             if collector:
-                collector.add(pred, trajectory, t0)
+                collector.add(pred, trajectory, t0) # Justin: This is the intermedate denoising steps 
 
         return trajectory
 
@@ -195,7 +195,7 @@ class ConditionalFlowMatchingPolicy(BasePolicy):
         nactions = nbatch["action"]
         batch_size = nactions.shape[0]
         horizon = nactions.shape[1]
-
+        # Justin: add prob of using null obs for ClassIfier-Free Diffusion Guidance 
         this_nobs = dict_apply(nobs, lambda x: x[:, : self.n_obs_steps, ...])
         global_cond = self.obs_encoder(this_nobs)
         

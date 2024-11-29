@@ -20,6 +20,12 @@ fuse.cfg
 # Generation results
 results/
 
+# Generation images
+images/
+
+# data to plot 
+/cnn/data_files
+
 ray/auth.json
 
 # Byte-compiled / optimized / DLL files
