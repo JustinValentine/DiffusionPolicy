@@ -24,7 +24,7 @@ class CNNModel(nn.Module):
 
 		self.fc_layers = nn.Sequential(
 			nn.Flatten(),
-			nn.Linear(256 * 8 * 8, 256), # Adjust input dimensions
+			nn.Linear(256 * 6 * 6, 256), # Adjust input dimensions
 			nn.ReLU(),
 			nn.Dropout(0.5), # Stop overfitting
 			nn.Linear(256, self.num_classes)  # Output layer with self.num_classes classes

@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import ast
 import json
+import click
 
 #Pytorch
 import torch
@@ -65,7 +66,7 @@ class CNNTrainer():
 		optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
 		# Training loop
-		epochs = 50
+		epochs = 70
 		tLoss = []
 		vLoss = []
 		vAccuracy = []
@@ -107,14 +108,14 @@ class CNNTrainer():
 
 			# Checkpoint the model
 			if epoch % 5 == 0:
-				self.write_metrics(tLoss, vLoss, vAccuracy)
+				self.write_metrics(tLoss, vLoss, vAccuracy, epoch)
 
-				torch.save(self.model.state_dict(), 'model-state.pt')
+				torch.save(self.model.state_dict(), './model-state.pt')
 			
 		# Training Finished
 		torch.save(self.model.state_dict(), 'model-state.pt')
 
-	def write_metrics(self, tLoss, vLoss, vAccuracy):
+	def write_metrics(self, tLoss, vLoss, vAccuracy, epoch):
 		# Number of epochs (this will be the length of any of the lists)
 		epochs = range(1, len(tLoss) + 1)
 
@@ -156,26 +157,31 @@ class CNNTrainer():
 
 		# Save the plot as a PNG file in the training_metrics directory
 		plt.savefig(f"./training_metrics/epoch_{epoch}_training_metrics_plot.png")
-
+		plt.close()
 
 	def test(self):
+		print("Loading model")
 		self.model.load_state_dict(torch.load('model-state.pt', weights_only=True))
 		self.model.eval()
 		
+		print("Loading data")
 		df = pd.read_csv('./data_files/test_data.csv')
-		c = df.iloc[:, 0].tolist()
-		s = df.iloc[:, 1].tolist()
-		drawings = np.array(sequencesToDrawings(s))
-
-		image_tensor = torch.tensor(drawings, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
-		image_tensor = image_tensor.squeeze(2).to(self.device)
+		c = df.iloc[:,0].tolist()
+		s = df.iloc[:,1].tolist()
+		drawings = np.array(sequencesToDrawings(s, generated=True))
 
 		output_vectors = []
 
+		with open('./data_files/data_index.json', 'r') as f:
+			indexes = json.load(f)
+
 		# Process all drawings
+		print("Processing drawings")
+		wrong = 0
+		total = len(drawings)
 		for i, drawing in enumerate(drawings):
 			# Convert the drawing into a tensor
-			image_tensor = torch.tensor(drawing, dtype=torch.float32).unsqueeze(0).unsqueeze(0) / 255.0  # Normalize
+			image_tensor = torch.tensor(drawing, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
 			image_tensor = image_tensor.squeeze(2).to(self.device)  # Remove unnecessary dimensions
 
 			# Get the model's output
@@ -184,35 +190,38 @@ class CNNTrainer():
 			
 			output_vectors.append(output_vector)
 
+			print(f"Actual: {c[i]}"+" "*(20-len(c[i]))+f"Predicted: {list(indexes.keys())[output_vector.argmax()]}")
+
+			if c[i] != list(indexes.keys())[output_vector.argmax()]:
+				wrong += 1
+
 			# Only plot the first image
 			if i == 0:
-				with open('./data_files/data_index.json', 'r') as f:
-					indexes = json.load(f)
 				# Display the first image with the output vector in the legend
 				fig, ax = plt.subplots(figsize=(8, 6))  # Adjust the size to leave room for the text
 				ax.imshow(drawing, cmap='gray')
-
-				# Format the output vector
 				output_str = ''.join([f'{v}: {output_vector[i]:.2f}\n' for i, v in enumerate(indexes.keys())])
 
 				# Position the text to the right of the image
 				plt.text(1.05, 0.5, f'{output_str}', transform=ax.transAxes, fontsize=12, verticalalignment='center')
-
-				# Set title
 				plt.title("Model Prediction Example")
 
 				# Adjust layout to prevent clipping
 				plt.subplots_adjust(right=0.75)  # Adjust this to leave enough space for the text
 
-				# Show the plot
 				plt.show()
 
-def main():
+		accuracy = ((total-wrong)/total )* 100
+		print(f"Accuracy: {accuracy}%")
+		print(f"Classes tested: {len(df.iloc[:,0].unique())}")
+
+@click.command()
+@click.option('-m', '--mode', required=True)
+def main(mode):
 	trainer = CNNTrainer()
-	x = input("Train (1)\nTest(2)\n: ")
-	if x == "1":
+	if mode == "train":
 		trainer.train()
-	elif x == "2":
+	elif mode == "eval":
 		trainer.test()
 
 if __name__ == "__main__":
