@@ -179,6 +179,8 @@ class CNNTrainer():
 		print("Processing drawings")
 		wrong = 0
 		total = len(drawings)
+		keys = list(indexes.keys())
+		output = ""
 		for i, drawing in enumerate(drawings):
 			# Convert the drawing into a tensor
 			image_tensor = torch.tensor(drawing, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
@@ -190,10 +192,11 @@ class CNNTrainer():
 			
 			output_vectors.append(output_vector)
 
-			print(f"Actual: {c[i]}"+" "*(20-len(c[i]))+f"Predicted: {list(indexes.keys())[output_vector.argmax()]}")
-
-			if c[i] != list(indexes.keys())[output_vector.argmax()]:
+			actual = c[i]
+			predicted = keys[output_vector.argmax()]
+			if actual != predicted:
 				wrong += 1
+				output += f"Actual: {actual}"+" "*(20-len(c[i]))+f"Predicted: {predicted}\n"
 
 			# Only plot the first image
 			if i == 0:
@@ -212,8 +215,15 @@ class CNNTrainer():
 				plt.show()
 
 		accuracy = ((total-wrong)/total )* 100
-		print(f"Accuracy: {accuracy}%")
-		print(f"Classes tested: {len(df.iloc[:,0].unique())}")
+		top = f"Accuracy: {accuracy}%\n"
+		top += f"Classes tested: {len(df.iloc[:,0].unique())}\n"
+		top += output
+
+		with open("./data_files/cnn_output.txt", "w") as f:
+			f.write(top)
+			f.close()
+		# print(f"Accuracy: {accuracy}%")
+		# print(f"Classes tested: {len(df.iloc[:,0].unique())}")
 
 @click.command()
 @click.option('-m', '--mode', required=True)
