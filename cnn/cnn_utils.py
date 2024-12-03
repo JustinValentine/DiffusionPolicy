@@ -15,8 +15,6 @@ def sequenceToDrawing(sequence, generated, size=(128, 128)):
 	'''
 	Converts the drawing sequence coordinates into an NP array representing the drawings
 	'''
-
-	# if not generated:
 	img = np.zeros(size, dtype=np.uint8)
 
 	for index in range(len(sequence)):
@@ -25,17 +23,6 @@ def sequenceToDrawing(sequence, generated, size=(128, 128)):
 			x2, y2 = sequence[index][0], sequence[index][1]
 			img = cv2.line(img, (sn(x1), sn(y1)), (sn(x2), sn(y2)), 255, 2)
 	return img/255
-
-	# else:
-	# 	img = np.zeros(size, dtype=np.uint8)
-
-	# 	for index in range(len(sequence)):
-	# 		if sequence[index][2] > 0.0:
-	# 			x1, y1 = sequence[index-1][0], sequence[index-1][1]
-	# 			x2, y2 = sequence[index][0], sequence[index][1]
-	# 			img = cv2.line(img, (sn(x1), sn(y1)), (sn(x2), sn(y2)), 255, 2)
-
-	# 	return img/255
 
 
 def sequencesToDrawings(data, generated=False):
@@ -50,11 +37,11 @@ def sequencesToDrawings(data, generated=False):
 	return images
 
 
-def onehotClasses(data):
+def onehotClasses(data, index_file):
 	'''
 	Get One Hot Encoding of Classes
 	'''
-	with open('./data_files/data_index.json', 'r') as f:
+	with open(index_file, 'r') as f:
 		indexes = json.load(f)
 	encodings = [[1 if name == index else 0 for index in indexes] for name in tqdm(data, desc="Classes To One Hots")]
 	return encodings

@@ -25,12 +25,23 @@ class CNNTrainer():
 	def __init__(self):
 		self.classes = None
 		self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-		self.model = CNNModel().to(self.device)
+		self.num_classes = 29
+		self.model = CNNModel(self.num_classes).to(self.device)
+		uncond = True
+		extra = ''
+		if uncond:
+			extra = '_uncond'
+		self.file = f"./data_files/data{extra}.csv"
+		self.index_file = f"./data_files/data{extra}_index.json"
+		self.model_output = f"./model{extra}-state.pt"
+		self.test_file = f"./data_files/generated_data{extra}.csv"
+		self.cnn_output = f"./data_files/cnn_output{extra}.txt"
+		self.training_metrics = f"./training_metrics/training_metrics_plot{extra}.png"
 
 	def train(self):
 
 		#Process all the data
-		df = pd.read_csv('./data_files/data.csv')
+		df = pd.read_csv(self.file)
 		self.classes = df.iloc[:, 0].unique().tolist()
 		validateClassData = []
 		validateImageData = []
@@ -38,11 +49,17 @@ class CNNTrainer():
 		trainImageData = []
 		for item in self.classes:
 			images = sequencesToDrawings(df[df.iloc[:, 0].isin([item])].iloc[:, 1].tolist())
-			encodings = onehotClasses(df[df.iloc[:, 0].isin([item])].iloc[:, 0].tolist())
-			validateClassData += encodings[:450]
-			validateImageData += images[:450]
-			trainClassData += encodings[450:]
-			trainImageData += images[450:]
+			encodings = onehotClasses(df[df.iloc[:, 0].isin([item])].iloc[:, 0].tolist(), self.index_file)
+			if item in ["U", "F", "A", "duck"]:
+				validateClassData += encodings[:8]
+				validateImageData += images[:8]
+				trainClassData += encodings[8:]
+				trainImageData += images[8:]
+			else:
+				validateClassData += encodings[:450]
+				validateImageData += images[:450]
+				trainClassData += encodings[450:]
+				trainImageData += images[450:]
 
 		validateClassData = np.array(validateClassData)
 		validateImageData = np.array(validateImageData)
@@ -110,10 +127,10 @@ class CNNTrainer():
 			if epoch % 5 == 0:
 				self.write_metrics(tLoss, vLoss, vAccuracy, epoch)
 
-				torch.save(self.model.state_dict(), './model-state.pt')
+				torch.save(self.model.state_dict(), self.model_output)
 			
 		# Training Finished
-		torch.save(self.model.state_dict(), 'model-state.pt')
+		torch.save(self.model.state_dict(), self.model_output)
 
 	def write_metrics(self, tLoss, vLoss, vAccuracy, epoch):
 		# Number of epochs (this will be the length of any of the lists)
@@ -156,23 +173,23 @@ class CNNTrainer():
 		plt.tight_layout()
 
 		# Save the plot as a PNG file in the training_metrics directory
-		plt.savefig(f"./training_metrics/epoch_{epoch}_training_metrics_plot.png")
+		plt.savefig(self.training_metrics)
 		plt.close()
 
 	def test(self):
 		print("Loading model")
-		self.model.load_state_dict(torch.load('model-state.pt', weights_only=True))
+		self.model.load_state_dict(torch.load(self.model_output, weights_only=True))
 		self.model.eval()
 		
 		print("Loading data")
-		df = pd.read_csv('./data_files/test_data.csv')
+		df = pd.read_csv(self.test_file)
 		c = df.iloc[:,0].tolist()
 		s = df.iloc[:,1].tolist()
 		drawings = np.array(sequencesToDrawings(s, generated=True))
 
 		output_vectors = []
 
-		with open('./data_files/data_index.json', 'r') as f:
+		with open(self.index_file, 'r') as f:
 			indexes = json.load(f)
 
 		# Process all drawings
@@ -219,7 +236,7 @@ class CNNTrainer():
 		top += f"Classes tested: {len(df.iloc[:,0].unique())}\n"
 		top += output
 
-		with open("./data_files/cnn_output.txt", "w") as f:
+		with open(self.cnn_output, "w") as f:
 			f.write(top)
 			f.close()
 		# print(f"Accuracy: {accuracy}%")

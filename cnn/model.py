@@ -2,10 +2,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CNNModel(nn.Module):
-	def __init__(self):
+	def __init__(self, num_classes):
 		super(CNNModel, self).__init__()
 
-		self.num_classes = 25
+		self.num_classes = num_classes
 
 		self.conv_layers = nn.Sequential(
 			nn.Conv2d(1, 32, kernel_size=3), # Single channel input
