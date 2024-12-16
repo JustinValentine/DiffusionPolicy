@@ -11,7 +11,7 @@ shape_meta:
       shape: [1]
       type: low_dim
   action: 
-    shape: [3]
+    shape: [3] # this was changed to 3 at some point... Not sure how that did not break everything... 
 
 task_name: square
 dataset_type: ph
@@ -21,7 +21,7 @@ resize_shape: null
 
 env_runner:
   _target_: diffusion_policy.env_runner.doodle_runner.DoodleRunner
-  n_classes: 25
+  n_classes: 26
 
 dataset:
   _target_: diffusion_policy.dataset.doodle_dataset.DoodleDataset

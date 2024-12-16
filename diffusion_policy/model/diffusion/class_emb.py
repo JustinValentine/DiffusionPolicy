@@ -8,12 +8,23 @@ class LabelEmb(ModuleAttrMixin):
         super().__init__()
         # self.input_dim = self.get_input_dim(input_shape)
         self.time_dim = time_dim
-        self.emb=torch.nn.Embedding(n_classes, n_emb)
+
+        self.emb = torch.nn.Embedding(
+            num_embeddings=n_classes,
+            embedding_dim=n_emb,
+            padding_idx=n_classes-1 
+        )
+
+        # self.emb=torch.nn.Embedding(n_classes, n_emb)
         self.n_emb = n_emb 
+        self.n_classes = n_classes
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = torch.cat([val.view(val.size(0), -1) for val in x.values()], dim=1)
         x = x.to(torch.long)
+
+        # Map null tokens (e.g., -1) to the padding index
+        x = torch.where(x == -1, torch.tensor(self.n_classes-1, device=x.device), x)
         x = self.emb(x)
 
         return x.squeeze()

@@ -26,8 +26,15 @@ fuse.cfg
 # Generation results
 results/
 
-# Generation images
+# Generation results
 images/
+images_for_figs/
+output_grids/
+images_guided_overlay/
+images_uofa/
+so_many_images/
+images_denoise_fig/
+pw_experiment_generations/
 
 # data to plot 
 /cnn/data_files

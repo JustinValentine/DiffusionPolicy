@@ -76,15 +76,14 @@ class DoodleRunner(BaseRunner):
 
             x_prev, y_prev = x, y
 
-
-        plt.title("Generated Doodle")
+        # plt.title("Generated Doodle")
         plt.xlabel("X")
         plt.ylabel("Y")
-        plt.grid(True)
+        plt.grid(False)
+        plt.axis('off')
        
         return fig
     
     def close(self):
         pass
     
-
