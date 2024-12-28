@@ -18,6 +18,7 @@
 This is our implementation of "Sequential Sketch Generation via Guided Flow Matching", built upon the [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) framework. Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors. The model is trained on the [Quick, Draw!](https://quickdraw.withgoogle.com/) dataset and the [TU-Berlin sketch dataset](https://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/).
 
 <img src="media/output.gif" alt="drawing" width="100%"/>
+<img src="media/output2.gif" alt="drawing" width="100%"/>
 
 
 <!-- ## 🛝 Try it out!
