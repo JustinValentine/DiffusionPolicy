@@ -9,9 +9,7 @@
 
 [Justin Valentine](https://github.com/JustinValentine)<sup>1</sup>,
 [Riley Zilka](https://github.com/rileyzilka01)<sup>1</sup>,
-[Hasti Karamdel]()<sup>1</sup>,
-
-<sup>1</sup>University of Alberta,
+[Hasti Karamdel]()<sup>1</sup>, <sup>1</sup>University of Alberta,
 
 
 <img src="media/grid_4_black.png" alt="drawing" width="100%"/>
