@@ -14,32 +14,10 @@
 <sup>1</sup>University of Alberta,
 
 
-<style>
-  .gif-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-  }
-  .gif-container img {
-    width: 150px; /* Set a fixed width */
-    height: auto; /* Maintain aspect ratio */
-  }
-</style>
-
-<div class="gif-container">
-  <img src="media/apple_grid.gif" alt="GIF 1">
-  <img src="media/bee_grid.gif" alt="GIF 2">
-  <img src="media/star_grid.gif" alt="GIF 3">
-</div>
+<img src="media/grid_4_black.png" alt="drawing" width="100%"/>
+<!-- <img src="media/multimodal_sim.png" alt="drawing" width="100%"/> -->
 
 This repository contains the official implementation of "Sequential Sketch Generation via Guided Flow Matching". Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors.
-
-<div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
-  <img src="media/pizza_465_denoising_colored_2.gif" alt="GIF 1" style="width: 20%;">
-  <img src="media/smiley face_523_denoising_colored_2.gif" alt="GIF 2" style="width: 20%;">
-  <img src="media/star_541_denoising_colored_2.gif" alt="GIF 3" style="width: 20%;">
-</div>
 
 ## 🛝 Try it out!
 Our self-contained Google Colab notebooks is the easiest way to play with Diffusion Policy. We provide separate notebooks for  [state-based environment](https://colab.research.google.com/drive/1gxdkgRVfM55zihY9TFLja97cSVZOZq2B?usp=sharing) and [vision-based environment](https://colab.research.google.com/drive/18GIHeOQ5DyjMN8iIRZL2EKZ0745NLIpg?usp=sharing).
