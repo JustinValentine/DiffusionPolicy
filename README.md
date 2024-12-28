@@ -1,4 +1,4 @@
-# Diffusion Policy
+# Sequential Sketch Generation via Guided Flow Matching
 
 <!-- [[Project page]](https://diffusion-policy.cs.columbia.edu/)
 [[Paper]](https://diffusion-policy.cs.columbia.edu/#paper)
@@ -14,18 +14,18 @@
 <sup>1</sup>University of Alberta,
 
 
-<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-  <img src="media/apple_grid.gif" alt="GIF 1" style="width: 32%;">
-  <img src="media/bee_grid.gif" alt="GIF 2" style="width: 32%;">
-  <img src="media/star_grid.gif" alt="GIF 3" style="width: 32%;">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+  <img src="media/apple_grid.gif" alt="GIF 1" style="width: 20%;">
+  <img src="media/bee_grid.gif" alt="GIF 2" style="width: 20%;">
+  <img src="media/star_grid.gif" alt="GIF 3" style="width: 20%;">
 </div>
 
 This repository contains the official implementation of "Sequential Sketch Generation via Guided Flow Matching". Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors.
 
-<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-  <img src="media/pizza_465_denoising_colored_2.gif" alt="GIF 1" style="width: 32%;">
-  <img src="media/smiley face_523_denoising_colored_2.gif" alt="GIF 2" style="width: 32%;">
-  <img src="media/star_541_denoising_colored_2.gif" alt="GIF 3" style="width: 32%;">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+  <img src="media/pizza_465_denoising_colored_2.gif" alt="GIF 1" style="width: 20%;">
+  <img src="media/smiley face_523_denoising_colored_2.gif" alt="GIF 2" style="width: 20%;">
+  <img src="media/star_541_denoising_colored_2.gif" alt="GIF 3" style="width: 20%;">
 </div>
 
 ## 🛝 Try it out!
