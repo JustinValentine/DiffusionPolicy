@@ -14,10 +14,10 @@
 <sup>1</sup>University of Alberta,
 
 
-<div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
-  <img src="media/apple_grid.gif" alt="GIF 1" style="width: 2%;">
-  <img src="media/bee_grid.gif" alt="GIF 2" style="width: 2%;">
-  <img src="media/star_grid.gif" alt="GIF 3" style="width: 2%;">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+  <img src="media/apple_grid.gif" alt="GIF 1" style="width: 150px; height: auto;">
+  <img src="media/bee_grid.gif" alt="GIF 2" style="width: 150px; height: auto;">
+  <img src="media/star_grid.gif" alt="GIF 3" style="width: 150px; height: auto;">
 </div>
 
 This repository contains the official implementation of "Sequential Sketch Generation via Guided Flow Matching". Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors.
