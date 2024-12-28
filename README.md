@@ -17,6 +17,9 @@
 
 This is our implementation of "Sequential Sketch Generation via Guided Flow Matching", built upon the [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) framework. Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors. The model is trained on the [Quick, Draw!](https://quickdraw.withgoogle.com/) dataset and the [TU-Berlin sketch dataset](https://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/).
 
+<img src="media/output.gif" alt="drawing" width="100%"/>
+
+
 <!-- ## 🛝 Try it out!
 Our self-contained Google Colab notebooks is the easiest way to play with Diffusion Policy. We provide separate notebooks for  [state-based environment](https://colab.research.google.com/drive/1gxdkgRVfM55zihY9TFLja97cSVZOZq2B?usp=sharing) and [vision-based environment](https://colab.research.google.com/drive/18GIHeOQ5DyjMN8iIRZL2EKZ0745NLIpg?usp=sharing).
 
