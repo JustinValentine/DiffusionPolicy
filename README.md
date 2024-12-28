@@ -7,16 +7,15 @@
 [[Colab (vision)]](https://colab.research.google.com/drive/18GIHeOQ5DyjMN8iIRZL2EKZ0745NLIpg?usp=sharing) -->
 
 
-[Justin Valentine](https://github.com/JustinValentine)<sup>1</sup>,
-[Riley Zilka](https://github.com/rileyzilka01)<sup>1</sup>,
-[Hasti Karamdel]()<sup>1</sup>, <sup>1</sup>University of Alberta
+[Justin Valentine](https://github.com/JustinValentine),
+[Riley Zilka](https://github.com/rileyzilka01),
+[Hasti Karamdel](), University of Alberta
 
 
 <img src="media/grid_4_black.png" alt="drawing" width="100%"/>
 <!-- <img src="media/multimodal_sim.png" alt="drawing" width="100%"/> -->
 
 This is our implementation of "Sequential Sketch Generation via Guided Flow Matching", built upon the [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) framework. Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors. The model is trained on the [Quick, Draw!](https://quickdraw.withgoogle.com/) dataset and the [TU-Berlin sketch dataset](https://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/).
-
 
 <!-- ## 🛝 Try it out!
 Our self-contained Google Colab notebooks is the easiest way to play with Diffusion Policy. We provide separate notebooks for  [state-based environment](https://colab.research.google.com/drive/1gxdkgRVfM55zihY9TFLja97cSVZOZq2B?usp=sharing) and [vision-based environment](https://colab.research.google.com/drive/18GIHeOQ5DyjMN8iIRZL2EKZ0745NLIpg?usp=sharing).
