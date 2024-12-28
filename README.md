@@ -1,26 +1,32 @@
 # Diffusion Policy
 
-[[Project page]](https://diffusion-policy.cs.columbia.edu/)
+<!-- [[Project page]](https://diffusion-policy.cs.columbia.edu/)
 [[Paper]](https://diffusion-policy.cs.columbia.edu/#paper)
 [[Data]](https://diffusion-policy.cs.columbia.edu/data/)
 [[Colab (state)]](https://colab.research.google.com/drive/1gxdkgRVfM55zihY9TFLja97cSVZOZq2B?usp=sharing)
-[[Colab (vision)]](https://colab.research.google.com/drive/18GIHeOQ5DyjMN8iIRZL2EKZ0745NLIpg?usp=sharing)
+[[Colab (vision)]](https://colab.research.google.com/drive/18GIHeOQ5DyjMN8iIRZL2EKZ0745NLIpg?usp=sharing) -->
 
 
-[Cheng Chi](http://cheng-chi.github.io/)<sup>1</sup>,
-[Siyuan Feng](https://www.cs.cmu.edu/~sfeng/)<sup>2</sup>,
-[Yilun Du](https://yilundu.github.io/)<sup>3</sup>,
-[Zhenjia Xu](https://www.zhenjiaxu.com/)<sup>1</sup>,
-[Eric Cousineau](https://www.eacousineau.com/)<sup>2</sup>,
-[Benjamin Burchfiel](http://www.benburchfiel.com/)<sup>2</sup>,
-[Shuran Song](https://www.cs.columbia.edu/~shurans/)<sup>1</sup>
+[Justin Valentine](https://github.com/JustinValentine)<sup>1</sup>,
+[Riley Zilka](https://github.com/rileyzilka01)<sup>1</sup>,
+[Hasti Karamdel]()<sup>1</sup>,
 
-<sup>1</sup>Columbia University,
-<sup>2</sup>Toyota Research Institute,
-<sup>3</sup>MIT
+<sup>1</sup>University of Alberta,
 
-<img src="media/teaser.png" alt="drawing" width="100%"/>
-<img src="media/multimodal_sim.png" alt="drawing" width="100%"/>
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+  <img src="media/apple_grid.gif" alt="GIF 1" style="width: 32%;">
+  <img src="media/bee_grid.gif" alt="GIF 2" style="width: 32%;">
+  <img src="media/star_grid.gif" alt="GIF 3" style="width: 32%;">
+</div>
+
+This repository contains the official implementation of "Sequential Sketch Generation via Guided Flow Matching". Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors.
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+  <img src="media/pizza_465_denoising_colored_2.gif" alt="GIF 1" style="width: 32%;">
+  <img src="media/smiley face_523_denoising_colored_2.gif" alt="GIF 2" style="width: 32%;">
+  <img src="media/star_541_denoising_colored_2.gif" alt="GIF 3" style="width: 32%;">
+</div>
 
 ## 🛝 Try it out!
 Our self-contained Google Colab notebooks is the easiest way to play with Diffusion Policy. We provide separate notebooks for  [state-based environment](https://colab.research.google.com/drive/1gxdkgRVfM55zihY9TFLja97cSVZOZq2B?usp=sharing) and [vision-based environment](https://colab.research.google.com/drive/18GIHeOQ5DyjMN8iIRZL2EKZ0745NLIpg?usp=sharing).
