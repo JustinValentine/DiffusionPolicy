@@ -15,7 +15,7 @@
 <img src="media/grid_4_black.png" alt="drawing" width="100%"/>
 <!-- <img src="media/multimodal_sim.png" alt="drawing" width="100%"/> -->
 
-This is our implementation of "Sequential Sketch Generation via Guided Flow Matching", built upon the [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) framework. Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors. The model is trained on the [Quick, Draw!](https://quickdraw.withgoogle.com/) dataset and the [TU-Berlin sketch dataset](https://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/).
+This is our implementation of "Sequential Sketch Generation via Guided Flow Matching", built upon the [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) framework. Our method leverages Flow Matching and classifier-free diffusion guidance to generate human-like sketches while preserving diverse drawing styles and behaviors. We train models on the [Quick, Draw!](https://quickdraw.withgoogle.com/) dataset, the [TU-Berlin sketch dataset](https://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/), and the [The Sketchy Database]([https://quickdraw.withgoogle.com/](https://sketchy.eye.gatech.edu/)).
 
 <img src="media/output.gif" alt="drawing" width="100%"/>
 
