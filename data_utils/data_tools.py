@@ -31,8 +31,6 @@ class DataTools():
 		shutil.rmtree(truncated_path)
 
 	def clean_data(self, source):
-		import pandas as pd
-
 		# Load the CSV file
 		df = pd.read_csv(source)
 		df = df.drop(columns=['countrycode', 'key_id', 'recognized', 'image_path'])
