@@ -104,7 +104,7 @@ class DataTools():
 		class_to_index = {cls: idx for idx, cls in enumerate(classes)}
 
 		with open(f'./outputs/{prefix}_class_index.json', 'w') as f:
-		    json.dump(class_to_index, f)
+			json.dump(class_to_index, f)
 
 		# Save the dataframe
 		df.to_csv(f'./outputs/{prefix}_data_train.csv', index=False)
